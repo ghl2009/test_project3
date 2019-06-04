@@ -1,25 +1,33 @@
 #!/bin/bash
 
-./DBA_Server_PT.sh 200 6 >/tmp/200.log
+./DBA_Auto_PT.sh M 20 1 >/tmp/M20.log
 
 sleep 300
 
-./DBA_Server_PT.sh 250 7 >/tmp/250.log
+./DBA_Auto_PT.sh M 30 1 >/tmp/M30.log
 
 sleep 300
 
-./DBA_Server_PT.sh 300 8 >/tmp/300.log
+./DBA_Auto_PT.sh M 40 2 >/tmp/M40.log
 
 sleep 300
 
-./DBA_Server_PT.sh 350 9 >/tmp/350.log
+./DBA_Auto_PT.sh M 50 2 >/tmp/M50.log
 
 sleep 300
 
-./DBA_Server_PT.sh 400 10 >/tmp/400.log
+./DBA_Auto_PT.sh p 10000 1 >/tmp/p10000.log
 
 sleep 300
 
-./DBA_Server_PT.sh 450 11 >/tmp/450.log
+./DBA_Auto_PT.sh p 13000 1 >/tmp/p13000.log
+
+sleep 300
+
+./DBA_Auto_PT.sh p 15000 1 >/tmp/p15000.log
+
+sleep 300
+
+./DBA_Auto_PT.sh p 20000 2 >/tmp/p20000.log
 
 

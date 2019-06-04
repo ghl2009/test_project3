@@ -229,20 +229,28 @@ reportfile_list.sort()
 ##初始化一个写列头的标志
 Write_title_flag = 0
 
+
+
 ##把多个文件生成xlsx文件及chart_line图
 for reportfile in reportfile_list:
 
+	##根据设备不同，算出.report中每个周期内的数据条数(行数）
+	One_cyc_Data_count = os.popen("grep 'SYS_CPU' %s/%s |awk -F= '{print $2}'|awk '{print $1}'"%(CHART_REPORTS_DIR,reportfile))
+	One_cyc_Data_count = One_cyc_Data_count.read()
+	One_cyc_Data_count = int(One_cyc_Data_count) + 17
+	print("One_cyc_Data_count=%s"%One_cyc_Data_count)
+
 	##得到数据类型列表
-	Data_type_list_tmp = os.popen("tail -n57 %s/%s |awk -F, '{print $2}'|grep 'COUNT'"%(CHART_REPORTS_DIR,reportfile))
+	Data_type_list_tmp = os.popen("tail -n%s %s/%s |awk -F, '{print $2}'|grep 'COUNT'"%(One_cyc_Data_count,CHART_REPORTS_DIR,reportfile))
 	Data_type_list_tmp = Data_type_list_tmp.read()
 	Data_type_list = Data_type_list_tmp.split('\n')[:-1]
 
-	Data_type_list_tmp = os.popen("tail -n57 %s/%s |awk -F, '{print $2}'|grep 'MEMORY_MB'"%(CHART_REPORTS_DIR,reportfile))
+	Data_type_list_tmp = os.popen("tail -n%s %s/%s |awk -F, '{print $2}'|grep 'MEMORY_MB'"%(One_cyc_Data_count,CHART_REPORTS_DIR,reportfile))
 	Data_type_list_tmp = Data_type_list_tmp.read()
 	Data_type_list_tmp = Data_type_list_tmp.split('\n')[:-1]
 	Data_type_list = Data_type_list + Data_type_list_tmp
 
-	Data_type_list_tmp = os.popen("tail -n57 %s/%s |awk -F, '{print $2}'|grep 'CPU'"%(CHART_REPORTS_DIR,reportfile))
+	Data_type_list_tmp = os.popen("tail -n%s %s/%s |awk -F, '{print $2}'|grep 'CPU'"%(One_cyc_Data_count,CHART_REPORTS_DIR,reportfile))
 	Data_type_list_tmp = Data_type_list_tmp.read()
 	Data_type_list_tmp = Data_type_list_tmp.split('\n')[:-1]
 	Data_type_list = Data_type_list + Data_type_list_tmp
@@ -252,20 +260,40 @@ for reportfile in reportfile_list:
 	##调生成线图的函数
 	CSV_to_XLSXandCHART(reportfile,Data_type_list)
 
-	rate=reportfile.split('_')[4][1:] + 'Mbps'
+	##判断是用的什么速率,Mbps或pps
+	rate_param = reportfile.split('_')[5][0]
+	if rate_param == "M":
+		rate=reportfile.split('_')[5][1:] + 'Mbps'
+	elif rate_param == "p":
+		rate=reportfile.split('_')[5][1:] + 'pps'
+	else:
+		print(error)
+		exit
 	
-	DBA_Version=reportfile.split('_')[0]
+	DBA_Version = reportfile.split('_')[0]
 	print DBA_Version 
 
+	DBA_SYSCPU = reportfile.split('_')[1]
+	print DBA_SYSCPU
+
+	DBA_SYSMEM = reportfile.split('_')[2]
+	print DBA_SYSMEM 
+
 	##定义不同速度下tla等tps重定向对csv文件的名称
-	Diff_Rate_csvfile = "%s_Diff_Rate_npp_tla_ftm_tls_tps.csv"%DBA_Version
+	#Diff_Rate_csvfile = "%s_%s_%s_Diff_Rate_npp_tla_ftm_tls_tps.csv"%(DBA_Version, DBA_SYSCPU, DBA_SYSMEM)
+	Diff_Rate_csvfile = "PT_Diff_Rate_npp_tla_ftm_tls_tps.csv"
+	Diff_Rate_xlsxfile = "%s_%s_%s_PT_Diff_Rate_npp_tla_ftm_tls_tps.xlsx"%(DBA_Version, DBA_SYSCPU, DBA_SYSMEM)
 
 	##处理第一个文件时把列头名称写入csv文件,后期后根据生成的这个文件,生成不同速度下的纵向性能对比图
 	if Write_title_flag == 0:
-		os.system("echo 'DBA_Version,tcpreplay_rate/Mbps,expect_count/s,sga_count/s,trace_count/s,index_count/s,summary_count/s' > %s/%s"%(CHART_REPORTS_DIR,Diff_Rate_csvfile))	
+		if rate_param == "M":
+			os.system("echo 'DBA_Version,tcpreplay_rate/Mbps,expect_count/s,sga_count/s,trace_count/s,index_count/s,summary_count/s' > %s/%s"%(CHART_REPORTS_DIR,Diff_Rate_csvfile))	
+		elif rate_param == "p":
+			os.system("echo 'DBA_Version,tcpreplay_rate/pps,expect_count/s,sga_count/s,trace_count/s,index_count/s,summary_count/s' > %s/%s"%(CHART_REPORTS_DIR,Diff_Rate_csvfile))	
+		
 		Write_title_flag=Write_title_flag+1
 		
-	value1 = os.popen("tail -n57 %s/%s |grep 'TLOG_TOT_PS_COUNT' |awk -F, '{print $4,$5,$6,$7,$8}' "%(CHART_REPORTS_DIR,reportfile))
+	value1 = os.popen("tail -n%s %s/%s |grep 'TLOG_TOT_PS_COUNT' |awk -F, '{print $4,$5,$6,$7,$8}' "%(One_cyc_Data_count,CHART_REPORTS_DIR,reportfile))
         value1 = value1.read()
         value1 = value1.split('\n')[:-1]
 	value1 =" ".join(value1)
@@ -288,7 +316,7 @@ worksheet = workbook.add_worksheet(Diff_Rate_sheetname)
 
 ##列宽
 worksheet.set_column('A:A', 21)
-worksheet.set_column('B:B', 16)
+worksheet.set_column('B:B', 20)
 worksheet.set_column('C:L', 22)
 
 with open(CHART_REPORTS_DIR + '/' + Diff_Rate_csvfile,'rb') as f:
@@ -316,7 +344,7 @@ for num in column_list:
 	    'values':[Diff_Rate_sheetname,32,num,r+31,num],
 	    })
 
-chart1.set_title({'name': 'DBA3.2.4.5 不同压力场景下npp、tla、ftm、tls性能分析图'})
+chart1.set_title({'name': '%s 不同压力场景下npp、tla、ftm、tls性能分析图'%DBA_Version})
 chart1.height=600
 chart1.width=1180
 chart1.set_x_axis({'position_axis': 'on_tick'})
@@ -328,9 +356,10 @@ workbook.close()
 ##获取当前时间,按特定格式赋值给变量
 nowTime=datetime.datetime.now().strftime('%Y%m%d%H%M%S')
 
+os.system('cd %s;mv %s.xlsx %s'%(CHART_REPORTS_DIR,Diff_Rate_csvfilename,Diff_Rate_xlsxfile))
 os.system('cd %s;rm -rf *.csv'%CHART_REPORTS_DIR)
 os.system('cd %s;mkdir -p reportfile;mv *.report reportfile'%CHART_REPORTS_DIR)
 os.system('cd %s;mkdir -p data_nmon;mv *.nmon data_nmon'%CHART_REPORTS_DIR)
 os.system('cd %s;mkdir -p logfile;mv *.log logfile'%CHART_REPORTS_DIR)
-os.system('cd %s;tar zcvf %s_Server_PT_Report_%s.tar.gz *.xlsx *.docx reportfile data_nmon logfile'%(CHART_REPORTS_DIR,DBA_Version,nowTime))
+os.system('cd %s;tar zcvf %s_%s_%s_PT_Report_%s.tar.gz *.xlsx *.docx reportfile data_nmon logfile'%(CHART_REPORTS_DIR,DBA_Version,DBA_SYSCPU,DBA_SYSMEM,nowTime))
 os.system('cd %s;rm -rf *.xlsx reportfile data_nmon logfile'%CHART_REPORTS_DIR)

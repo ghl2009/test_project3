@@ -8,12 +8,12 @@
 #*此区间内参数需进行配置********************************************************************
 
 ##定义要DBA的ip
-DBA_ip='192.168.5.157'
+DBA_ip='192.168.7.30'
 ##定义DBA收包网卡
 DBA_eth_R='eth5'
 
 ##要运行tcpreplay的ip,tcpreplay_ip与DBA_ip可相同
-tcpreplay_ip='192.168.5.194'
+tcpreplay_ip='192.168.5.156'
 
 ##tcpreplay打包参数 即:打包命令
 ##注:1、pcap包需要定义绝对路径 2、需要把包按路径放于打包设备上 
@@ -22,7 +22,7 @@ tcpreplay_ip='192.168.5.194'
 tcpreplay_eth_T='eth5'
 
 ##pcap包所在路径及名称
-pcap_name='/home/meter/loadrunner-moresql-loop100-w100.pcap'
+pcap_name='/dbfw_dc/loadrunner-moresql-loop100-w100.pcap'
 
 ##tcpreplay打包速率模式: -M (given Mbps), -p (given packets/sec)
 tcpreplay_given='M'
@@ -102,8 +102,27 @@ function Get_eth_T_info()
 {
 	tcpreplay_ip="$1"
 	tcpreplay_eth_T="$2"
-	tcpreplay_Tx_pck=`ssh root@$tcpreplay_ip ifconfig $tcpreplay_eth_T|grep "TX packets"|awk '{print $2}'|awk -F: '{print $2}'`	
-	tcpreplay_T_d_pck=`ssh root@$tcpreplay_ip ifconfig $tcpreplay_eth_T|grep "TX packets"|awk '{print $4}'|awk -F: '{print $2}'`
+
+	if [[ $tcpreplay_kernel_version != "el7" ]];then
+		tcpreplay_Tx_pck=`ssh root@$tcpreplay_ip ifconfig $tcpreplay_eth_T|grep "TX packets"|awk '{print $2}'|awk -F: '{print $2}'`	
+		tcpreplay_T_d_pck=`ssh root@$tcpreplay_ip ifconfig $tcpreplay_eth_T|grep "TX packets"|awk '{print $4}'|awk -F: '{print $2}'`
+	else
+		tcpreplay_Tx_pck=`ssh root@$tcpreplay_ip "ifconfig $tcpreplay_eth_T|grep 'TX packets'"|awk '{print $3}'`
+		tcpreplay_T_d_pck=`ssh root@$tcpreplay_ip "ifconfig $tcpreplay_eth_T|grep 'TX errors'"|awk '{print $5}'`
+	fi
+	
+	##此处这样处理不行，第一次打包时，这个网卡发包数就是0,还需要做标记处理，先搁置。。。
+	#if [[ $tcpreplay_Tx_pck -eq 0 ]];then
+	#	printf_log 0 "Get $tcpreplay_eth_T tcpreplay_Tx_pck=$tcpreplay_Tx_pck"
+	#	exit
+	#fi
+
+	tcpreplay_eth_seep=`ssh root@$tcpreplay_ip "ethtool $tcpreplay_eth_T|grep Speed"|awk '{print $2}'|awk -FM '{print $1}'`
+	if [[ $tcpreplay_eth_seep -lt 1000 ]];then
+		printf_log 0 "Get $tcpreplay_eth_T tcpreplay_eth_seep=$tcpreplay_eth_seep"
+		exit
+	fi
+
 	printf_log 1 "Get $tcpreplay_eth_T tcpreplay_Tx_pck=$tcpreplay_Tx_pck tcpreplay_T_d_pck=$tcpreplay_T_d_pck"
 } 
 
@@ -547,6 +566,7 @@ PT_report_name="${soft_version}_Server_PT_${File_Name_Time}_${tcpreplay_given}${
 mkdir -p /root/.ssh
 #rm -rf /root/.ssh/{id_rsa,id_rsa.pub,authorized_keys}
 #ssh-keygen  -t rsa -P '' -f /root/.ssh/id_rsa
+chmod 0600 $DBA_PT_HOME_DIR/sshkey/{id_rsa,id_rsa.pub}
 \cp -f $DBA_PT_HOME_DIR/sshkey/{id_rsa,id_rsa.pub} /root/.ssh/
 mv /root/.ssh/{id_rsa.pub,authorized_keys}
 ssh_keygen_login "${DBA_ip}" "y"
@@ -565,6 +585,12 @@ elif [[ $port -eq 9208 ]];then
         DBC_count=2
         printf_log 1 "DBC_count=2"
 fi
+
+##查看打包机及DBA的kernel版本
+tcpreplay_kernel_version=`ssh root@$tcpreplay_ip "uname -r"|awk -F. '{print $(NF-1)}'`
+printf_log 1 "Get tcpreplay_kernel_version=$tcpreplay_kernel_version"
+DBA_kernel_version=`ssh root@$DBA_ip "uname -r"|awk -F. '{print $(NF-1)}'`
+printf_log 1 "Get DBA_kernel_version=$DBA_kernel_version"
 
 ##得到系统cpu信息
 Get_Sys_Info
@@ -898,6 +924,7 @@ $tot_Begin_to_loose_count"\
 
 		((ps_tot_sga_count=tot_sga_count/expect2sga_Total_Time))
 		
+		##这一块还就有bug有时间了再查（偶尔可能会出现分母为0的情况,但是不知道是哪一个）
 		if [[ $tot_sga_count -eq 0 ]] || [[ $tot_trace_count -eq 0 ]] || [[ $tot_summary_count -eq 0 ]];then
 			printf 1 "tcpreplay param error or DBA error!"	
 			exit

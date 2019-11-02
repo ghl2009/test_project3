@@ -138,7 +138,7 @@ function Get_eth_R_info()
 			DBA_R_d_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $4}'|awk -F: '{print $2}'`
 		else
 			DBA_Rx_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $3}'`
-            DBA_R_d_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $5}'`
+			DBA_R_d_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $5}'`
 		fi
 	else
 		if [[ $DBA_kernel_version != "el7" ]];then
@@ -146,7 +146,7 @@ function Get_eth_R_info()
 			DBA_R_d_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $4}'|awk -F: '{print $2}'`
 		else
 			DBA_Rx_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $3}'`
-            DBA_R_d_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $5}'`
+			DBA_R_d_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $5}'`
 		fi
 	fi
 	printf_log 1 "Get DBA_Rx_pck=$DBA_Rx_pck DBA_R_d_pck=$DBA_R_d_pck"
@@ -158,7 +158,7 @@ function Get_dpdk_stats()
 	DBA_ip="$1"
 	DBA_eth_R="$2"
 	if [[ PT_RUN_DBA -eq 1 ]];then
-		eth_R_flag=`cat /tmp/dpdk/eth_pci_map|grep "${DBA_eth_R}" |awk -F = '{print $2}'`
+		eth_R_flag=`cat /tmp/dpdk/eth_pci_map|grep "${DBA_eth_R}=" |awk -F = '{print $2}'`
 		str_row=`grep -n "$eth_R_flag" /dev/shm/dpdk/dpdk_nic_stats|cut -d ':' -f 1`
 		eth_drive_map=`cat /tmp/dpdk/drive_map |grep "$eth_R_flag"`
 		dpdk_rx_pkt_tot=`sed -n "$((str_row+2))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`

@@ -1,0 +1,21 @@
+{
+    "changed": 0,
+    "groupDesc": "IPAndTrunk",
+    "groupDescBefore": "",
+    "groupEnable": 1,
+    "groupGateway": "",
+    "groupId": 0,
+    "groupIp": "",
+    "groupMac": "",
+    "groupMask": "",
+    "groupName": "旁路eth1",
+    "groupType": 4,
+    "ifId": 2,
+    "ifIdBridge": 0,
+    "ifName": "eth1",
+    "ifNameBridge": "",
+    "isLink": 0,
+    "isUsed": 0,
+    "speed": 0,
+    "speedStatus": 0
+}

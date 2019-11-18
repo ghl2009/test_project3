@@ -29,10 +29,11 @@ function ssh_keygen_login()
         cmd7="sed -i '/\bStrictHostKeyChecking\b/s/.*/#   StrictHostKeyChecking ask/' /etc/ssh/ssh_config"
         cmd8="rm -rf /root/.ssh/authorized_keys"
         cmd9="service sshd restart >>/dev/null"
+	cmd10=" sed -i '/\bGSSAPIAuthentication\b/s/.*/#&/' /etc/ssh/ssh_config"
 
         if [[ $2 == y ]];then
                 scp /root/.ssh/{authorized_keys,id_rsa}  root@$R_key_ip:/root/.ssh/
-                ssh root@$R_key_ip "$cmd1;$cmd2;$cmd3;$cmd4;$cmd9"
+                ssh root@$R_key_ip "$cmd10;$cmd1;$cmd2;$cmd3;$cmd4;$cmd9"
         elif [[ $2 == n ]];then
                 ssh root@$R_key_ip "$cmd5;$cmd6;$cmd7;$cmd8;$cmd9"
         else

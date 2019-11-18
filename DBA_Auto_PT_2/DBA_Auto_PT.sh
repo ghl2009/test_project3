@@ -6,6 +6,19 @@
 ## work:DBA nfw/npp/tla/ftm performance testing
 ################################################
 
+##配置文件内读取配置，$1：配置文件名称 $2:配置名称(格式section.key)
+function GetKey(){    
+    section=$(echo $2 | cut -d '.' -f 1)
+    key=$(echo $2 | cut -d '.' -f 2)
+    sed -n "/\[$section\]/,/\[.*\]/{
+     /^\[.*\]/d
+     /^[ \t]*$/d
+     /^$/d
+     /^#.*$/d
+     s/^[ \t]*$key[ \t]*=[ \t]*\(.*\)[ \t]*/\1/p
+    }" $1
+}
+
 #*此区间内参数需进行配置********************************************************************
 ##配置文件情况名称
 CONFF="DBA_Auto_PT.ini"
@@ -57,6 +70,9 @@ Get_info_cycle=$(GetKey $CONFF "PT_Scripts.Get_info_cycle")
 ##定义此脚本是否在DBA运行 1 是; 2 否 注：建议DBA本机运行,因为在DBA取数据时速度快
 PT_RUN_DBA=$(GetKey $CONFF "PT_Scripts.PT_RUN_DBA")
 
+##定义数据中心的密码
+DBC_pwd=$(GetKey $CONFF "Product_Info.DBC_pwd")
+
 #********************************************************************************************
 
 ##程序log输出函数
@@ -71,19 +87,6 @@ function printf_log()
 	else
                 print "function prinf_log pass param error!"
         fi
-}
-
-##配置文件内读取配置，$1：配置文件名称 $2:配置名称(格式section.key)
-function GetKey(){    
-    section=$(echo $2 | cut -d '.' -f 1)
-    key=$(echo $2 | cut -d '.' -f 2)
-    sed -n "/\[$section\]/,/\[.*\]/{
-     /^\[.*\]/d
-     /^[ \t]*$/d
-     /^$/d
-     /^#.*$/d
-     s/^[ \t]*$key[ \t]*=[ \t]*\(.*\)[ \t]*/\1/p
-    }" $1
 }
 
 ##ssh免密登录函数,ssh-keygen login

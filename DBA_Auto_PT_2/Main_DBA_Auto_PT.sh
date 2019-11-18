@@ -54,12 +54,16 @@ modify_checksys INS_Clear_Login_User
 modify_checksys KillAllSSHConnection
 modify_checksys "service sshd restart"
 
+mkdir -p chart_reports_histry
+\cp chart_reports_dir/* chart_reports_histry
+
 #删除原有数据目录
-#rm -rf chart_reports_dir data_nmon logs_dir reports_dir tcpreplay_log_dir Main_script_log
+rm -rf chart_reports_dir data_nmon logs_dir reports_dir tcpreplay_log_dir Main_script_log
 mkdir -p Main_script_log
 
 #自动添加数据库
 cd autoAddDb
+chmod 777 ./autoAddDb-DBFW.sh
 ./autoAddDb-DBFW.sh oracl_24_1523 1 4 11020001 0 1 eth2 null null 192.168.1.24 1523 orcl2411gbk 0 null null
 cd ..
 
@@ -138,9 +142,15 @@ for num in `seq $packing_times`
 			
 		printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" \
 			 "PT_CMD:./DBA_Auto_PT.sh ${tcpreplay_given} ${packing_rate} ${packing_loop} > ./Main_script_log/${tcpreplay_given}_${packing_rate}_${packing_loop}.log"	
-		./DBA_Auto_PT.sh $tcpreplay_given $packing_rate $packing_loop > ./Main_script_log/$tcpreplay_given_$packing_rate_$packing_loop.log
-		sleep 300
+		./DBA_Auto_PT.sh ${tcpreplay_given} ${packing_rate} ${packing_loop} > ./Main_script_log/${tcpreplay_given}_${packing_rate}_${packing_loop}.log
+		if [[ $packing_times -eq 1 ]];then
+			sleep 10
+		else
+			sleep 600
+		fi
 	done
 
+
 ##把DBA_Server_PT.sh生成相应的数据日志，通过此脚本生成excl Chart图,并压缩为tar.gz文件
+\cp ./Readme_DBA_Auto_PT_DES.docx ./chart_reports_dir
 python DBA_Auto_PT_MakeChart.py > ./Main_script_log/DBA_Auto_PT_MakeChart.log

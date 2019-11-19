@@ -1030,6 +1030,15 @@ $tot_Begin_to_loose_count"\
 		#elif [[ $tot_index_count -eq 0 ]] && [[ $Get_Date_num -ge 3 ]];then
 		#	printf 1 "tcpreplay param error or DBA error!"	
 
+		elif [[ $tot_index_count -eq 0 ]] && [[ $tot_summary_count -eq 0 ]];then
+                        echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
+$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
+$(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
+0,\
+0,\
+$(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
+>> $REPORTS_DIR/$PT_report_name
+
                 elif [[ $tot_index_count -eq 0 ]];then
                         echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
 $(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
@@ -1038,6 +1047,16 @@ $(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
 $(((tot_sga_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time))),\
 $(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
 >> $REPORTS_DIR/$PT_report_name
+
+                elif [[ $tot_summary_count -eq 0 ]];then
+                        echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
+$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
+$(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
+$(((tot_sga_count-tot_index_count)/(tot_index_count/sga2index_Total_Time))),\
+0,\
+$(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
+>> $REPORTS_DIR/$PT_report_name
+
                 else
                         echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
 $(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\

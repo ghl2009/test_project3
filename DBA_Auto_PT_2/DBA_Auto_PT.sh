@@ -576,8 +576,8 @@ TCPREPLAY_LOG_DIR="$DBA_PT_HOME_DIR/tcpreplay_log_dir"
 mkdir -p $TCPREPLAY_LOG_DIR
 
 ##定义连接trace_logs_detail_part表所在本地数据中心命令 
-DBCDataView_dc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9207 -uroot -p1 --default-character-set=utf8"
-DBCDataView_tc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9208 -uroot -p1 --default-character-set=utf8"
+DBCDataView_dc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9207 -uroot -p${DBC_pwd} --default-character-set=utf8"
+DBCDataView_tc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9208 -uroot -p${DBC_pwd} --default-character-set=utf8"
 
 ##得到产品版本号
 soft_version=`ssh root@$DBA_ip "$DBCDataView_dc dbfwsystem -N -e 'SELECT soft_major_version,soft_minor_version,soft_svn_version,soft_build_version FROM version_main ORDER BY id desc;'"`
@@ -1048,6 +1048,15 @@ $tot_Begin_to_loose_count"\
 		#elif [[ $tot_index_count -eq 0 ]] && [[ $Get_Date_num -ge 3 ]];then
 		#	printf 1 "tcpreplay param error or DBA error!"	
 
+		elif [[ $tot_index_count -eq 0 ]] && [[ $tot_summary_count -eq 0 ]];then
+                        echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
+$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
+$(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
+0,\
+0,\
+$(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
+>> $REPORTS_DIR/$PT_report_name
+
                 elif [[ $tot_index_count -eq 0 ]];then
                         echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
 $(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
@@ -1056,6 +1065,16 @@ $(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
 $(((tot_sga_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time))),\
 $(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
 >> $REPORTS_DIR/$PT_report_name
+
+                elif [[ $tot_summary_count -eq 0 ]];then
+                        echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
+$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
+$(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
+$(((tot_sga_count-tot_index_count)/(tot_index_count/sga2index_Total_Time))),\
+0,\
+$(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
+>> $REPORTS_DIR/$PT_report_name
+
                 else
                         echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
 $(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\

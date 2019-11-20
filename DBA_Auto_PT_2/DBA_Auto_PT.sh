@@ -643,6 +643,18 @@ tcpreplay_pid_list=`ssh root@$tcpreplay_ip ps -ef |grep "tcpreplay"|grep "$tcpre
 if [[ -n ${tcpreplay_pid_list} ]];then
 	ssh root@$tcpreplay_ip kill -9 ${tcpreplay_pid_list}
 	printf_log 1 "tcpreplay run before,kill surplus tcpreplay:${tcpreplay_pid_list} success"
+	while ture
+		do
+			tlog_file_exist_flag=`ssh root@$DBA_ip ls -l /dbfw_tlog |grep -v "total" |wc -l`
+			if [[ ${tlog_file_exist_flag} -gt 0 ]];then
+				printf_log 1 "Before packing,tlog file exist,Please check the reason and remove!"
+				sleep 20
+			else
+				printf_log 1 "Before packing,tlog file not exist,20s later begin formally!"
+				sleep 20
+				break
+			fi	
+		done
 fi
 
 ##如果原来有残留此脚本启的nmon，kill掉（此脚本没有运行完，异常或正常中断时会有）
@@ -1055,8 +1067,8 @@ $tot_Begin_to_loose_count"\
 		((ps_tot_sga_count=tot_sga_count/expect2sga_Total_Time))
 		
 		##这一块还就有bug有时间了再查（偶尔可能会出现分母为0的情况,但是不知道是哪一个）
-		if [[ $tot_sga_count -eq 0 ]] || [[ $tot_trace_count -eq 0 ]] || [[ $tot_summary_count -eq 0 ]];then
-			printf 1 "tcpreplay param error or DBA error!"	
+		if [[ $tot_sga_count -eq 0 ]] || [[ $tot_trace_count -eq 0 ]];then
+			printf_log 1 "tcpreplay param error or DBA error!"	
 			exit
 
 		#elif [[ $tot_index_count -eq 0 ]] && [[ $Get_Date_num -ge 3 ]];then
@@ -1312,7 +1324,18 @@ $((cyc_summary_count/Get_info_cycle))"\
 			Get_info_Time_tmp=`date +%s`
 			((sleep_time=Get_info_Time-Get_info_Time_tmp-1))
 			printf_log 1 "sleep_time=$sleep_time"
-			sleep $sleep_time
+
+                if [[ $sleep_time -ge 0 ]];then
+			printf_log 1 "Start sleeping!"
+                        sleep $sleep_time
+
+                else
+                        printf_log 1 "sleep_time is negative,please check why the scheduled time is exceeded!"
+			Get_info_Time_tmp=`date +%s`
+			((Get_info_Time=Get_info_Time_tmp+1))
+			printf_log 1 "Current time plus 1 second as next time Get_info_Time"
+                fi
+
 		fi
 	elif [[ $Get_Date_num -eq 0 ]];then
 		((Get_Date_num=Get_Date_num+1))		
@@ -1320,7 +1343,16 @@ $((cyc_summary_count/Get_info_cycle))"\
 		Get_info_Time_tmp=`date +%s`
 		((sleep_time=Get_info_Time-Get_info_Time_tmp-1))
 		printf_log 1 "sleep_time=$sleep_time"
-		sleep $sleep_time
+
+		if [[ $sleep_time -ge 0 ]];then
+			printf_log 1 "Start sleeping!"
+			sleep $sleep_time
+		else
+			printf_log 1 "sleep_time is negative,please check why the scheduled time is exceeded!"
+			((Get_info_Time=Get_info_Time_tmp+1))
+			printf_log 1 "Current time plus 1 second as next time Get_info_Time"
+		fi
+
 	fi
 
 	done

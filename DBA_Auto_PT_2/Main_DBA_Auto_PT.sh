@@ -6,7 +6,7 @@
 ## work:Main_DBA_Auto_PT
 ################################################
 
-##ÅäÖÃÎÄ¼þÄÚ¶ÁÈ¡ÅäÖÃ£¬$1£ºÅäÖÃÎÄ¼þÃû³Æ $2:ÅäÖÃÃû³Æ(¸ñÊ½section.key)
+##é…ç½®æ–‡ä»¶å†…è¯»å–é…ç½®ï¼Œ$1ï¼šé…ç½®æ–‡ä»¶åç§° $2:é…ç½®åç§°(æ ¼å¼section.key)
 function GetKey(){    
     section=$(echo $2 | cut -d '.' -f 1)
     key=$(echo $2 | cut -d '.' -f 2)
@@ -44,10 +44,10 @@ function modify_checksys()
 	fi
 }
 
-##ÒªÔËÐÐtcpreplayµÄip,tcpreplay_ipÓëDBA_ip¿ÉÏàÍ¬
+##è¦è¿è¡Œtcpreplayçš„ip,tcpreplay_ipä¸ŽDBA_ipå¯ç›¸åŒ
 CONFF="DBA_Auto_PT.ini"
 tcpreplay_ip=$(GetKey $CONFF "Packing_Tool.tcpreplay_ip")
-#×¢ÊÍssh¹Ø±Õ
+#æ³¨é‡Šsshå…³é—­
 modify_checksys CloseSshConnect
 modify_checksys INS_Close_SSH_Key_Login
 modify_checksys INS_Clear_Login_User
@@ -57,52 +57,54 @@ modify_checksys "service sshd restart"
 mkdir -p chart_reports_histry
 \cp chart_reports_dir/* chart_reports_histry
 
-#É¾³ýÔ­ÓÐÊý¾ÝÄ¿Â¼
+##æŠŠä¸Šæ¬¡ctrl+cé€€å‡ºä¸»è„šæœ¬,è°ƒèµ·çš„DBA_Auto_PT.shä¸ä¸€å®šé€€å‡º,è¿™æ¬¡è¿è¡Œå‰killæŽ‰
+ps -ef|grep "DBA_Auto_PT.sh" |grep -vE "grep|Main_DBA_Auto_PT.sh" |awk '{print $2}'|xargs -i kill -9 {}
+
+#åˆ é™¤åŽŸæœ‰æ•°æ®ç›®å½•
 rm -rf chart_reports_dir data_nmon logs_dir reports_dir tcpreplay_log_dir Main_script_log
 mkdir -p Main_script_log
 
-#×Ô¶¯Ìí¼ÓÊý¾Ý¿â
+#è‡ªåŠ¨æ·»åŠ æ•°æ®åº“
 cd autoAddDb
 chmod 777 ./autoAddDb-DBFW.sh
 ./autoAddDb-DBFW.sh oracl_24_1523 1 4 11020001 0 1 eth2 null null 192.168.1.24 1523 orcl2411gbk 0 null null
 cd ..
 
-##ÅäÖÃÎÄ¼þ¶ÁÈ¡ÒÔÏÂ²ÎÊýÖµ
-
-##pcap°ü×Ö½ÚÊý
+##é…ç½®æ–‡ä»¶è¯»å–ä»¥ä¸‹å‚æ•°å€¼
+##pcapåŒ…å­—èŠ‚æ•°
 pcap_bytes=$(GetKey $CONFF "Packing_Tool.pcap_bytes")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "pcap_bytes=$pcap_bytes"
 
-##pcap°üÄÚÔ¤ÆÚ°üÊý
+##pcapåŒ…å†…é¢„æœŸåŒ…æ•°
 expect_pcap=$(GetKey $CONFF "Packing_Tool.expect_pcap")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "expect_pcap=$expect_pcap"
 
-##tcpreplay´ò°üËÙÂÊÄ£Ê½: M (given Mbps), p (given packets/sec)
+##tcpreplayæ‰“åŒ…é€ŸçŽ‡æ¨¡å¼: M (given Mbps), p (given packets/sec)
 tcpreplay_given=$(GetKey $CONFF "Packing_Param.tcpreplay_given")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "tcpreplay_given=$tcpreplay_given"
 
-##¶à´Î²»Í¬ËÙÂÊÏÂµÄÆðÊ¼ËÙÂÊ
+##å¤šæ¬¡ä¸åŒé€ŸçŽ‡ä¸‹çš„èµ·å§‹é€ŸçŽ‡
 initial_rate=$(GetKey $CONFF "Packing_Param.initial_rate")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "initial_rate=$initial_rate"
 
-##ËÙÂÊ±ä»¯£ºdown ËÙÂÊÏÂµ÷£¬up ËÙÂÊÉÏµ÷
+##é€ŸçŽ‡å˜åŒ–ï¼šdown é€ŸçŽ‡ä¸‹è°ƒï¼Œup é€ŸçŽ‡ä¸Šè°ƒ
 rate_change=$(GetKey $CONFF "Packing_Param.rate_change")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "rate_change=$rate_change"
 
-##´ò°ü´ÎÊý,È¡Öµ·¶Î§1,2,3,4,5,6
+##æ‰“åŒ…æ¬¡æ•°,å–å€¼èŒƒå›´1,2,3,4,5,6
 packing_times=$(GetKey $CONFF "Packing_Param.packing_times")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "packing_times=$packing_times"
 
-##ËÙÂÊµ÷Õû²½³¤£¬
+##é€ŸçŽ‡è°ƒæ•´æ­¥é•¿ï¼Œ
 packing_step=$(GetKey $CONFF "Packing_Param.packing_step")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "packing_step=$packing_step"
 
-##Ã¿ÖÖËÙÂÊÏÂ´ò°üÊ±¼ä¿ØÖÆÔÚ¶àÉÙÃëÒÔÉÏ£¬´ËÊ±¼ä¿ÉÒÔÍ¨¹ý°üÐÅÏ¢¼°´ò°üËÙÂÊËã³öÃ¿´Î´ò°üµÄloop
+##æ¯ç§é€ŸçŽ‡ä¸‹æ‰“åŒ…æ—¶é—´æŽ§åˆ¶åœ¨å¤šå°‘ç§’ä»¥ä¸Šï¼Œæ­¤æ—¶é—´å¯ä»¥é€šè¿‡åŒ…ä¿¡æ¯åŠæ‰“åŒ…é€ŸçŽ‡ç®—å‡ºæ¯æ¬¡æ‰“åŒ…çš„loop
 packing_time=$(GetKey $CONFF "Packing_Param.packing_time")
 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "packing_time=$packing_time"
 
 
-##°´ÅäÖÃÎÄ¼þÄÚÉèÖÃµÄ´ò°ü²ÎÊý½øÐÐDBAÐÔÄÜ²âÊÔ,µ÷DBA_Server_PT.shÉú³ÉÏàÓ¦µÄÊý¾ÝÈÕÖ¾
+##æŒ‰é…ç½®æ–‡ä»¶å†…è®¾ç½®çš„æ‰“åŒ…å‚æ•°è¿›è¡ŒDBAæ€§èƒ½æµ‹è¯•,è°ƒDBA_Server_PT.shç”Ÿæˆç›¸åº”çš„æ•°æ®æ—¥å¿—
 packing_rate=$initial_rate
 for num in `seq $packing_times`
 	do
@@ -151,6 +153,6 @@ for num in `seq $packing_times`
 	done
 
 
-##°ÑDBA_Server_PT.shÉú³ÉÏàÓ¦µÄÊý¾ÝÈÕÖ¾£¬Í¨¹ý´Ë½Å±¾Éú³Éexcl ChartÍ¼,²¢Ñ¹ËõÎªtar.gzÎÄ¼þ
+##æŠŠDBA_Server_PT.shç”Ÿæˆç›¸åº”çš„æ•°æ®æ—¥å¿—,é€šè¿‡æ­¤è„šæœ¬ç”Ÿæˆexcl Chartå›¾,å¹¶åŽ‹ç¼©ä¸ºtar.gzæ–‡ä»¶
 \cp ./Readme_DBA_Auto_PT_DES.docx ./chart_reports_dir
 python DBA_Auto_PT_MakeChart.py > ./Main_script_log/DBA_Auto_PT_MakeChart.log

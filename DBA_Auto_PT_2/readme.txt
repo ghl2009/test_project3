@@ -17,3 +17,6 @@
 4、执行Main_DBA_Auto_PT.sh
 	
    nohup ./Main_PY.sh &
+
+
+注：运行前建议把MMS平台运行参数：单独的prepare语句审计的值改为1

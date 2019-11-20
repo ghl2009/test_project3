@@ -638,6 +638,13 @@ printf_log 1 "Get tcpreplay_kernel_version=$tcpreplay_kernel_version"
 DBA_kernel_version=`ssh root@$DBA_ip "uname -r"|awk -F. '{print $(NF-1)}'`
 printf_log 1 "Get DBA_kernel_version=$DBA_kernel_version"
 
+##如果原来有残留此脚本启的nmon，kill掉（此脚本没有运行完，异常或正常中断时会有）
+nmon_pid_list=`ssh root@$DBA_ip ps -ef|grep nmon|grep 5760|awk '{print $2}'`
+if [[ -n ${nmon_pid_list} ]];then
+	ssh root@$DBA_ip kill -9 ${nmon_pid_list}
+	printf_log 1 "nmon run before,kill surplus nmon:${nmon_pid_list} success"
+fi
+
 ##打包前启动nmon，Get_info前起码有一次nmon数据
 ssh root@$DBA_ip mkdir -p $NMONS_DIR
 ssh root@$DBA_ip /usr/bin/nmon -s5 -c5760 -f -m $NMONS_DIR > /dev/null 2>&1
@@ -882,6 +889,13 @@ fi
 
 sed -i "s/trace_count_base,/trace_count_base,$trace_count/" $REPORTS_DIR/$PT_report_name
 
+##如果原来有残留此脚本启动的tcpreplay，kill掉（此脚本没有运行完，异常或正常中断时可能会有）
+tcpreplay_pid_list=`ssh root@$tcpreplay_ip ps -ef |grep "tcpreplay"|grep "$tcpreplay_eth_T" |grep -v "grep" |awk '{print $2}'`
+if [[ -n ${tcpreplay_pid_list} ]];then
+	ssh root@$tcpreplay_ip kill -9 ${tcpreplay_pid_list}
+	printf_log 1 "tcpreplay run before,kill surplus tcpreplay:${tcpreplay_pid_list} success"
+fi
+
 ##启动tcpreplay
 ssh root@$tcpreplay_ip "nohup $tcpreplay_cmd >> /tmp/tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log 2>&1 &"
 printf_log 1 "tcpreplay Begin run! tcpreplay_cmd: $tcpreplay_cmd"
@@ -1054,7 +1068,7 @@ $(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
 $(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
 0,\
 0,\
-$(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
+0"\
 >> $REPORTS_DIR/$PT_report_name
 
                 elif [[ $tot_index_count -eq 0 ]];then
@@ -1072,7 +1086,7 @@ $(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
 $(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
 $(((tot_sga_count-tot_index_count)/(tot_index_count/sga2index_Total_Time))),\
 0,\
-$(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
+0"\
 >> $REPORTS_DIR/$PT_report_name
 
                 else

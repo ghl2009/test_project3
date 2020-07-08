@@ -130,7 +130,7 @@ for num in `seq $packing_times`
 			packing_loop=$((packing_time*packing_rate/expect_pcap))
 			printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "packing_loop=$packing_loop"
 		elif [[ $tcpreplay_given = "M" ]];then
-			packing_loop=$((packing_time*packing_rate*1024*1024/pcap_bytes/8))
+			packing_loop=`echo "$packing_time $packing_rate $pcap_bytes"|awk '{printf ("%.0f\n",$1*$2*1024*1024/$3/8)}'`
 			printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "packing_loop=$packing_loop"
 		else
 			printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "ERROR" "tcpreplay_given param error,exit!"

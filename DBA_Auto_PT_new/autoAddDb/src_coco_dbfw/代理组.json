@@ -1,0 +1,41 @@
+{
+    "changed": 0,
+    "groupDesc": "IPAndTrunk",
+    "groupDescBefore": "",
+    "groupEnable": 1,
+    "groupGateway": "",
+    "groupId": 0,
+    "groupIp": "1.1.1.1",
+    "groupMac": "",
+    "groupMask": "255.255.0.0",
+    "groupName": "代理eth1",
+    "groupPortList": [
+        {
+            "enable": 1,
+            "groupId": 0,
+            "id": 0,
+            "name": "代理eth1:10000",
+            "portNum": 10000,
+            "status": 0,
+            "used": 0
+        },
+        {
+            "enable": 1,
+            "groupId": 0,
+            "id": 0,
+            "name": "代理eth1:10001",
+            "portNum": 10001,
+            "status": 0,
+            "used": 0
+        }
+    ],
+    "groupType": 3,
+    "ifId": 2,
+    "ifIdBridge": 0,
+    "ifName": "eth1",
+    "ifNameBridge": "",
+    "isLink": 0,
+    "isUsed": 0,
+    "speed": 0,
+    "speedStatus": 0
+}

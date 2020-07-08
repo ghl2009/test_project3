@@ -237,6 +237,7 @@ for reportfile in reportfile_list:
 	##根据设备不同，算出.report中每个周期内的数据条数(行数）
 	One_cyc_Data_count = os.popen("grep 'SYS_CPU' %s/%s |awk -F= '{print $2}'|awk '{print $1}'"%(CHART_REPORTS_DIR,reportfile))
 	One_cyc_Data_count = One_cyc_Data_count.read()
+	print int(One_cyc_Data_count)
 	One_cyc_Data_count = int(One_cyc_Data_count) + 17
 	print("One_cyc_Data_count=%s"%One_cyc_Data_count)
 
@@ -255,7 +256,7 @@ for reportfile in reportfile_list:
 	Data_type_list_tmp = Data_type_list_tmp.split('\n')[:-1]
 	Data_type_list = Data_type_list + Data_type_list_tmp
 
-	#print Data_type_list
+	print Data_type_list
 
 	##调生成线图的函数
 	CSV_to_XLSXandCHART(reportfile,Data_type_list)

@@ -139,7 +139,8 @@ function Get_eth_T_info()
 	#fi
 
 	tcpreplay_eth_seep=`ssh root@$tcpreplay_ip "ethtool $tcpreplay_eth_T|grep Speed"|awk '{print $2}'|awk -FM '{print $1}'`
-	if [[ $tcpreplay_eth_seep -lt 1000 ]];then
+
+	if [[ "$tcpreplay_eth_seep" = "Unknown!" ]] || [[ "$tcpreplay_eth_seep" -lt 1000 ]];then
 		printf_log 0 "Get $tcpreplay_eth_T tcpreplay_eth_seep=$tcpreplay_eth_seep"
 		exit
 	fi
@@ -643,7 +644,7 @@ tcpreplay_pid_list=`ssh root@$tcpreplay_ip ps -ef |grep "tcpreplay"|grep "$tcpre
 if [[ -n ${tcpreplay_pid_list} ]];then
 	ssh root@$tcpreplay_ip kill -9 ${tcpreplay_pid_list}
 	printf_log 1 "tcpreplay run before,kill surplus tcpreplay:${tcpreplay_pid_list} success"
-	while ture
+	while true
 		do
 			tlog_file_exist_flag=`ssh root@$DBA_ip ls -l /dbfw_tlog |grep -v "total" |wc -l`
 			if [[ ${tlog_file_exist_flag} -gt 0 ]];then
@@ -1067,9 +1068,30 @@ $tot_Begin_to_loose_count"\
 		((ps_tot_sga_count=tot_sga_count/expect2sga_Total_Time))
 		
 		##这一块还就有bug有时间了再查（偶尔可能会出现分母为0的情况,但是不知道是哪一个）
-		if [[ $tot_sga_count -eq 0 ]] || [[ $tot_trace_count -eq 0 ]];then
-			printf_log 1 "tcpreplay param error or DBA error!"	
+		if [[ $tot_sga_count -eq 0 ]];then
+			printf_log 0 "tot_sga_count:$tot_sga_count"
+			printf_log 0 "tcpreplay param error or DBA error!"	
 			exit
+
+		elif [[ $tot_trace_count -eq 0 ]];then
+			##得到产品的是不是满足规则审计
+			S_AUD_SWITCH=`ssh root@$DBA_ip "$DBCDataView_dc dbfw -N -e 'SELECT param_value FROM param_config where param_id=142;'"`
+			printf_log 1 "S_AUD_SWITCH:$S_AUD_SWITCH"
+			##如果不是满足规则审计
+			if [[ $S_AUD_SWITCH -eq 1 ]];then
+				printf_log 0 "tot_trace_count:$tot_trace_count"
+				printf_log 0 "tcpreplay param error or DBA error!"	
+				exit
+			else
+				echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
+$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
+0,\
+0,\
+0,\
+0"\
+>> $REPORTS_DIR/$PT_report_name
+	
+			fi
 
 		#elif [[ $tot_index_count -eq 0 ]] && [[ $Get_Date_num -ge 3 ]];then
 		#	printf 1 "tcpreplay param error or DBA error!"	
@@ -1281,6 +1303,8 @@ $((cyc_summary_count/Get_info_cycle))"\
 		
 		tcpreplay_run_flag=`ssh root@$tcpreplay_ip ps -ef |grep "$tcpreplay_cmd_tmp" |grep -v "grep"|wc -l`		
 		printf_log 1 "tcpreplay_run_flag=$tcpreplay_run_flag"
+		printf_log 1 "cyc_expect_sql_flag=$cyc_expect_sql"
+		printf_log 1 "cyc_sga_count_flag=$cyc_sga_count"
 		tlog_file_complete_flag=`ssh root@$DBA_ip ls -l /dbfw_tlog |grep -v "total" |wc -l`
 		printf_log 1 "tlog_file_complete_flag=$tlog_file_complete_flag"
 		printf_log 1 "tlog_table_complete_flag=$cyc_trace_count"
@@ -1289,8 +1313,10 @@ $((cyc_summary_count/Get_info_cycle))"\
 		printf_log 1 "xml_table_complete_flag=$xml_table_complete_flag"
 		printf_log 1 "summary_complete_flag=$summary_complete_flag"
 
-
+		##加上cyc_expect_sql、cyc_sga_count,因为tcpreplay_run_flag为0可能是在本周期内
 		if [[ $tcpreplay_run_flag -eq 0 ]] && \
+		   [[ $cyc_expect_sql -eq 0 ]] && \
+		   [[ $cyc_sga_count -eq 0 ]] && \
 		   [[ $tlog_file_complete_flag -eq 0 ]] && \
 		   [[ $tlog_table_complete_flag -eq 0 ]] && \
 		   [[ $xml_file_complete_flag -eq 0 ]] && \
@@ -1303,9 +1329,10 @@ $((cyc_summary_count/Get_info_cycle))"\
 
 		if [[ $PT_complete_flag -eq 1 ]];then
 			##把打包机文件拿到本地目录
-			scp -r root@$tcpreplay_ip:/tmp/tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log $TCPREPLAY_LOG_DIR
-			ssh root@$tcpreplay_ip rm -rf /tmp/tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log
-                        printf_log 1 "scp tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log complete!"
+			tcpreplay_log_name="tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log"
+			scp -r root@$tcpreplay_ip:/tmp/${tcpreplay_log_name} $TCPREPLAY_LOG_DIR
+			ssh root@$tcpreplay_ip rm -rf /tmp/${tcpreplay_log_name}
+                        printf_log 1 "scp ${tcpreplay_log_name} complete!"
 			ssh root@$DBA_ip kill -9 $nmon_pid
                         printf_log 1 "kill nmon complete!"
 			
@@ -1315,6 +1342,7 @@ $((cyc_summary_count/Get_info_cycle))"\
 			echo $CHART_REPORTS_DIR
 			cp $REPORTS_DIR/$PT_report_name $CHART_REPORTS_DIR
 			cp $nmon_file_name $CHART_REPORTS_DIR
+			cp $TCPREPLAY_LOG_DIR/$tcpreplay_log_name $CHART_REPORTS_DIR
                         printf_log 1 "cp .report .log .nmon file to chart_reports_dir complete!"
                         printf_log 1 "shell script run end!"
 

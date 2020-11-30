@@ -130,7 +130,7 @@ for num in `seq $packing_times`
 			packing_loop=$((packing_time*packing_rate/expect_pcap))
 			printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "packing_loop=$packing_loop"
 		elif [[ $tcpreplay_given = "M" ]];then
-			packing_loop=`echo "$packing_time $packing_rate $pcap_bytes"|awk '{printf ("%.0f\n",$1*$2*1024*1024/$3/8)}'`
+			packing_loop=$((packing_time*packing_rate*1024*1024/pcap_bytes/8))
 			printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" "packing_loop=$packing_loop"
 		else
 			printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "ERROR" "tcpreplay_given param error,exit!"
@@ -143,8 +143,7 @@ for num in `seq $packing_times`
 		fi
 			
 		printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "INFO" \
-			 "PT_CMD:./DBA_Auto_PT.sh ${tcpreplay_given} ${packing_rate} ${packing_loop} > ./Main_script_log/${tcpreplay_given}_${packing_rate}_${packing_loop}.log"
-		chmod u+x ./DBA_Auto_PT.sh
+			 "PT_CMD:./DBA_Auto_PT.sh ${tcpreplay_given} ${packing_rate} ${packing_loop} > ./Main_script_log/${tcpreplay_given}_${packing_rate}_${packing_loop}.log"	
 		./DBA_Auto_PT.sh ${tcpreplay_given} ${packing_rate} ${packing_loop} > ./Main_script_log/${tcpreplay_given}_${packing_rate}_${packing_loop}.log
 		if [[ $packing_times -eq 1 ]];then
 			sleep 10

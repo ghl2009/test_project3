@@ -1,12 +1,10 @@
 #!/bin/bash
 ################################################
 ## auther:liuguanghui
-## create date:20181218
-## update date:20191102
+## date:20181218
 ## work:DBA nfw/npp/tla/ftm performance testing
 ################################################
 
-##配置文件内读取配置，$1：配置文件名称 $2:配置名称(格式section.key)
 function GetKey(){    
     section=$(echo $2 | cut -d '.' -f 1)
     key=$(echo $2 | cut -d '.' -f 2)
@@ -20,25 +18,25 @@ function GetKey(){
 }
 
 #*此区间内参数需进行配置********************************************************************
-##配置文件情况名称
-CONFF="DBA_Auto_PT.ini"
+
+CONFF="DBA_Server_PT.ini"
 
 ##定义要DBA的ip
-DBA_ip=$(GetKey $CONFF "Product_Info.DBA_ip")
+DBA_ip=$(GetKey $CONFF "Product_Line.DBA_ip")
 ##定义DBA收包网卡
-DBA_eth_R=$(GetKey $CONFF "Product_Info.DBA_eth_R")
+DBA_eth_R=$(GetKey $CONFF "Product_Line.DBA_eth_R")
 
 ##要运行tcpreplay的ip,tcpreplay_ip与DBA_ip可相同
-tcpreplay_ip=$(GetKey $CONFF "Packing_Tool.tcpreplay_ip")
+tcpreplay_ip=$(GetKey $CONFF "Packing_tool.tcpreplay_ip")
 
 ##tcpreplay打包参数 即:打包命令
 ##注:1、pcap包需要定义绝对路径 2、需要把包按路径放于打包设备上 
 
 ##tcpreplay发包网卡
-tcpreplay_eth_T=$(GetKey $CONFF "Packing_Tool.tcpreplay_eth_T")
+tcpreplay_eth_T=$(GetKey $CONFF "Packing_tool.tcpreplay_eth_T")
 
 ##pcap包所在路径及名称
-pcap_name=$(GetKey $CONFF "Packing_Tool.pcap_name")
+pcap_name=$(GetKey $CONFF "Packing_tool.pcap_name")
 pcappath=`dirname $pcap_name`
 pcapname=`basename $pcap_name`
 ifpcap=`ssh root@$tcpreplay_ip ls $pcap_name |wc -l 2>/dev/null`
@@ -46,20 +44,20 @@ if [ "$ifpcap" -eq 0 ];then
 	ssh root@$tcpreplay_ip wget -q -t 3 -P $pcappath ftp://192.168.0.5/autotest/$pcapname --user autotest --password autotest
 fi
 
-##tcpreplay打包速率模式: M (given Mbps), p (given packets/sec)
-tcpreplay_given="$1"
+##tcpreplay打包速率模式: -M (given Mbps), -p (given packets/sec)
+tcpreplay_given=$(GetKey $CONFF "Packing_tool.tcpreplay_given")
 
 ##tcpreplay打包速率
-tcpreplay_rate="$2"
+tcpreplay_rate="$1"
 
 ##tcpreplay打包loop数
-tcpreplay_loop="$3"
+tcpreplay_loop="$2"
 
 ##所打的pcap包内预期包数
-expect_pcap=$(GetKey $CONFF "Packing_Tool.expect_pcap")
+expect_pcap=$(GetKey $CONFF "Packing_tool.expect_pcap")
 
 ##所打的pcap包内预期sql数
-expect_sql=$(GetKey $CONFF "Packing_Tool.expect_sql")
+expect_sql=$(GetKey $CONFF "Packing_tool.expect_sql")
 
 ##参上打包参数都设置完后，以下打包命令自动生成
 tcpreplay_cmd="tcpreplay -$tcpreplay_given $tcpreplay_rate -l $tcpreplay_loop -i $tcpreplay_eth_T $pcap_name"
@@ -70,9 +68,7 @@ Get_info_cycle=$(GetKey $CONFF "PT_Scripts.Get_info_cycle")
 ##定义此脚本是否在DBA运行 1 是; 2 否 注：建议DBA本机运行,因为在DBA取数据时速度快
 PT_RUN_DBA=$(GetKey $CONFF "PT_Scripts.PT_RUN_DBA")
 
-##定义数据中心的密码
-DBC_pwd=$(GetKey $CONFF "Product_Info.DBC_pwd")
-
+if_nfw=`ps -ef|grep nfw|grep -v grep|wc -l`
 #********************************************************************************************
 
 ##程序log输出函数
@@ -86,35 +82,6 @@ function printf_log()
                 printf "%s\t%-6s\t%-5s\t%s\n" "[$(date +%Y-%m-%d' '%H:%M:%S)]" "$$" "ERROR" "$2" >> $LOGS_DIR/$PT_log_name
 	else
                 print "function prinf_log pass param error!"
-        fi
-}
-
-##ssh免密登录函数,ssh-keygen login
-function ssh_keygen_login()
-{
-
-        T_key_ip=`ifconfig eth0|awk '/inet addr/{print $2}'|awk -F : '{print $2}'`
-        R_key_ip=$1
-        key_yes_or_no=$2
-
-        cmd1="sed -i '/\bRSAAuthentication\b/s/.*/RSAAuthentication yes/' /etc/ssh/sshd_config"
-        cmd2="sed -i '/\bPubkeyAuthentication\b/s/.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config"
-        cmd3="sed -i '/\bStrictHostKeyChecking\b/s/.*/StrictHostKeyChecking no/' /etc/ssh/ssh_config"
-        cmd4="sed -i '/\bAuthorizedKeysFile\b/s/.*/AuthorizedKeysFile .ssh\/authorized_keys/' /etc/ssh/sshd_config"
-        cmd5="sed -i '/\bRSAAuthentication\b/s/.*/RSAAuthentication no/' /etc/ssh/sshd_config"
-        cmd6="sed -i '/\bPubkeyAuthentication\b/s/.*/PubkeyAuthentication no/' /etc/ssh/sshd_config"
-        cmd7="sed -i '/\bStrictHostKeyChecking\b/s/.*/#   StrictHostKeyChecking ask/' /etc/ssh/ssh_config"
-        cmd8="rm -rf /root/.ssh/authorized_keys"
-        cmd9="service sshd restart >>/dev/null"
-
-        if [[ $2 == y ]];then
-                scp /root/.ssh/{authorized_keys,id_rsa}  root@$R_key_ip:/root/.ssh/
-                ssh root@$R_key_ip "$cmd1;$cmd2;$cmd3;$cmd4;$cmd9"
-        elif [[ $2 == n ]];then
-                ssh root@$R_key_ip "$cmd5;$cmd6;$cmd7;$cmd8;$cmd9"
-        else
-                printf_log 0 "Please pass in parameters correctly."
-                exit
         fi
 }
 
@@ -139,8 +106,7 @@ function Get_eth_T_info()
 	#fi
 
 	tcpreplay_eth_seep=`ssh root@$tcpreplay_ip "ethtool $tcpreplay_eth_T|grep Speed"|awk '{print $2}'|awk -FM '{print $1}'`
-
-	if [[ "$tcpreplay_eth_seep" = "Unknown!" ]] || [[ "$tcpreplay_eth_seep" -lt 1000 ]];then
+	if [[ $tcpreplay_eth_seep -lt 1000 ]];then
 		printf_log 0 "Get $tcpreplay_eth_T tcpreplay_eth_seep=$tcpreplay_eth_seep"
 		exit
 	fi
@@ -154,21 +120,11 @@ function Get_eth_R_info()
 	DBA_ip="$1"
 	DBA_eth_R="$2"
 	if [[ PT_RUN_DBA -eq 1 ]];then
-		if [[ $DBA_kernel_version != "el7" ]];then
-			DBA_Rx_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $2}'|awk -F: '{print $2}'`
-			DBA_R_d_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $4}'|awk -F: '{print $2}'`
-		else
-			DBA_Rx_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $3}'`
-			DBA_R_d_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $5}'`
-		fi
+		DBA_Rx_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $2}'|awk -F: '{print $2}'`
+		DBA_R_d_pck=`ifconfig $DBA_eth_R|grep 'RX packets'|awk '{print $4}'|awk -F: '{print $2}'`
 	else
-		if [[ $DBA_kernel_version != "el7" ]];then
-			DBA_Rx_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $2}'|awk -F: '{print $2}'`
-			DBA_R_d_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $4}'|awk -F: '{print $2}'`
-		else
-			DBA_Rx_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $3}'`
-			DBA_R_d_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $5}'`
-		fi
+		DBA_Rx_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $2}'|awk -F: '{print $2}'`
+		DBA_R_d_pck=`ssh root@$DBA_ip "ifconfig $DBA_eth_R|grep 'RX packets'"|awk '{print $4}'|awk -F: '{print $2}'`
 	fi
 	printf_log 1 "Get DBA_Rx_pck=$DBA_Rx_pck DBA_R_d_pck=$DBA_R_d_pck"
 } 
@@ -179,7 +135,7 @@ function Get_dpdk_stats()
 	DBA_ip="$1"
 	DBA_eth_R="$2"
 	if [[ PT_RUN_DBA -eq 1 ]];then
-		eth_R_flag=`cat /tmp/dpdk/eth_pci_map|grep "${DBA_eth_R}=" |awk -F = '{print $2}'`
+		eth_R_flag=`cat /tmp/dpdk/eth_pci_map|grep "${DBA_eth_R}" |awk -F = '{print $2}'`
 		str_row=`grep -n "$eth_R_flag" /dev/shm/dpdk/dpdk_nic_stats|cut -d ':' -f 1`
 		eth_drive_map=`cat /tmp/dpdk/drive_map |grep "$eth_R_flag"`
 		dpdk_rx_pkt_tot=`sed -n "$((str_row+2))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
@@ -192,35 +148,35 @@ function Get_dpdk_stats()
 		dpdk_rx_pkt_tot=`ssh root@$DBA_ip sed -n "$((str_row+2))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
 		dpdk_rx_pkt_err=`ssh root@$DBA_ip sed -n "$((str_row+4))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
 		dpdk_drop_pkt_hw=`ssh root@$DBA_ip sed -n "$((str_row+6))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
-		dpdk_drop_pkt_tot=`ssh root@$DBA_ip sed -n "$((str_row+8))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
+		dpdk_drop_pkt_tot=`ssh root@$DBA_ip sed -n "$((str_row+7))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
 	fi
 	printf_log 1 "Get dpdk rx_pkt_tot=$dpdk_rx_pkt_tot rx_pkt_err=$dpdk_rx_pkt_err drop_pkt_hw=$dpdk_drop_pkt_hw drop_pkt_tot=$dpdk_drop_pkt_tot"	
 }
 
-##此函数定义npc状态文件,收包网卡收包总数
+##此函数定义npc状态文件,收包网卡收包数，丢包数，错误包数
 function Get_npc_stats()
 {
 	DBA_ip="$1"
+	DBA_eth_R="$2"
 	if [[ PT_RUN_DBA -eq 1 ]];then
-		npc_rx_all_pkt_tot=`cat /dev/shm/npc/npc_packet_stats|grep 'rx_all_pkt_tot' |awk '{print $3}'`
+		eth_R_flag=`cat /tmp/dpdk/eth_pci_map|grep "${DBA_eth_R}" |awk -F = '{print $2}'`
+		#str_row=`grep -n "$eth_R_flag" /dev/shm/npc/npc_packet_stats|cut -d ':' -f 1`
+		str_row=0
+		eth_drive_map=`cat /tmp/dpdk/drive_map |grep "$eth_R_flag"`
+		dpdk_rx_pkt_tot=`sed -n "1p" /dev/shm/npc/npc_packet_stats |awk '{print $3}'`
+		dpdk_rx_pkt_err=`ifconfig $DBA_eth_R|grep RX|grep errors|awk -F'errors:' '{print$2}'|awk '{print$1}'`
+		dpdk_drop_pkt_hw=`ifconfig $DBA_eth_R|grep TX|grep dropped|awk -F'dropped:' '{print$2}'|awk '{print$1}'`
+		dpdk_drop_pkt_drop=`ifconfig $DBA_eth_R|grep TX|grep errors|awk -F'errors:' '{print$2}'|awk '{print$1}'`
+		dpdk_drop_pkt_tot=$(($dpdk_rx_pkt_err+$dpdk_drop_pkt_hw+$dpdk_drop_pkt_drop))
 	else
-		npc_rx_all_pkt_tot=`ssh root@$DBA_ip "cat /dev/shm/npc/npc_packet_stats|grep 'rx_all_pkt_tot'"|awk '{print $3}'`
+		eth_R_flag=`ssh root@$DBA_ip cat /tmp/dpdk/eth_pci_map|grep "${DBA_eth_R}" |awk -F = '{print $2}'`
+		str_row=`ssh root@$DBA_ip grep -n "$eth_R_flag" /dev/shm/dpdk/dpdk_nic_stats|cut -d ':' -f 1`
+		dpdk_rx_pkt_tot=`ssh root@$DBA_ip sed -n "$((str_row+2))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
+		dpdk_rx_pkt_err=`ssh root@$DBA_ip sed -n "$((str_row+4))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
+		dpdk_drop_pkt_hw=`ssh root@$DBA_ip sed -n "$((str_row+6))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
+		dpdk_drop_pkt_tot=`ssh root@$DBA_ip sed -n "$((str_row+7))p" /dev/shm/dpdk/dpdk_nic_stats |awk '{print $3}'`
 	fi
-	printf_log 1 "Get npc_packet_stats npc_rx_all_pkt_tot=$npc_rx_all_pkt_tot}"	
-}
-
-##此函数定义rms状态文件,收包网卡收包总数
-function Get_rms_stats()
-{
-	DBA_ip="$1"
-	if [[ PT_RUN_DBA -eq 1 ]];then
-		rms_rx_all_pkt_tot=`cat /dev/shm/rms/rms_packet_stats|grep 'rx_pkt_tot' |awk '{print $3}'`
-		rms_rx_db_pkt_tot=`cat /dev/shm/rms/rms_packet_stats|grep 'rx_db_pkt_tot' |awk '{print $3}'`
-	else
-		rms_rx_all_pkt_tot=`ssh root@$DBA_ip "cat /dev/shm/rms/rms_packet_stats|grep 'rx_pkt_tot'"|awk '{print $3}'`
-		rms_rx_db_pkt_tot=`cat /dev/shm/rms/rms_packet_stats|grep 'rx_db_pkt_tot' |awk '{print $3}'`
-	fi
-	printf_log 1 "Get rms_packet_stats rms_rx_all_pkt_tot=$rms_rx_all_pkt_tot}"	
+	printf_log 1 "Get dpdk rx_pkt_tot=$dpdk_rx_pkt_tot rx_pkt_err=$dpdk_rx_pkt_err drop_pkt_hw=$dpdk_drop_pkt_hw drop_pkt_tot=$dpdk_drop_pkt_tot"	
 }
 
 ##此函数定义往共享内存内得到已解析sql数
@@ -281,19 +237,31 @@ function Get_trace_count()
 
 		##按是否为双数据中心取trace_logs_detail_part表中的数据条数
 		if [[ $DBC_count -eq 1 ]];then
-			trace_count=`ssh root@$DBA_ip "$DBCDataView_dc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part;'"`
+        	if [[ PT_RUN_DBA -eq 1 ]];then
+				trace_count=`$DBCDataView_dc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part;'`
+			else
+				trace_count=`ssh root@$DBA_ip "$DBCDataView_dc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part;'"`
+			fi
 			if [[ -z $trace_count ]];then
 				trace_count=0
 			fi
 
 		elif [[ $DBC_count -eq 2 ]];then
-			trace_count=`ssh root@$DBA_ip "$DBCDataView_tc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part;'"`
+        	if [[ PT_RUN_DBA -eq 1 ]];then
+				trace_count=`$DBCDataView_tc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part;'`
+			else
+				trace_count=`ssh root@$DBA_ip "$DBCDataView_tc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part;'"`
+			fi
 			if [[ -z $trace_count ]];then
 				trace_count=0
 			fi
 			for t_num in `seq 1 3`
 				do
-					trace_count_tmp=`ssh root@$DBA_ip "$DBCDataView_tc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part_${t_num};'"`
+        			if [[ PT_RUN_DBA -eq 1 ]];then
+						trace_count_tmp=`$DBCDataView_tc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part_${t_num};'`
+					else
+						trace_count_tmp=`ssh root@$DBA_ip "$DBCDataView_tc dbfw -N -e 'select count(tlogid) from trace_logs_detail_part_${t_num};'"`
+					fi
 					if [[ -z $trace_count ]];then
 						trace_count_tmp=0
 					fi
@@ -308,11 +276,11 @@ function Get_trace_count()
 ##此函数定义从summary_xml_history表查看索引创建条数
 function Get_index_count()
 {
-        DBA_ip="$1"
+	DBA_ip="$1"
 
-        if [[ PT_RUN_DBA -eq 1 ]];then
+	if [[ PT_RUN_DBA -eq 1 ]];then
 		index_count=`$DBCDataView_dc dbfw -N -e 'SELECT sum(record_count) FROM summary_xml_history where isdelete=1;'`
-        else
+	else
 		index_count=`ssh root@$DBA_ip "$DBCDataView_dc dbfw -N -e 'SELECT sum(record_count) FROM summary_xml_history where isdelete=1;'"`
 	fi
 
@@ -432,9 +400,15 @@ function Get_Sys_Info()
 {
 	local cpu mem disk
 
-	cpu=`ssh root@$DBA_ip cat /proc/cpuinfo|grep processor|tail -n 1|awk '{print $3+1}'`
-	mem=`ssh root@$DBA_ip /usr/bin/free -g|grep 'Mem'|awk '{print $2}'`
-	disk=`ssh root@$DBA_ip fdisk -l 2>/dev/null|grep -E 'Disk /dev/sd|Disk /dev/xvd'|awk '{sum+=$5} END {print sum/1000/1000/1000}'`
+	if [[ PT_RUN_DBA -eq 1 ]];then
+		cpu=`cat /proc/cpuinfo|grep processor|tail -n 1|awk '{print $3+1}'`
+		mem=`/usr/bin/free -g|grep 'Mem'|awk '{print $2}'`
+		disk=`fdisk -l 2>/dev/null|grep -E 'Disk /dev/sd|Disk /dev/xvd'|awk '{sum+=$5} END {print sum/1000/1000/1000}'`
+	else
+		cpu=`ssh root@$DBA_ip cat /proc/cpuinfo|grep processor|tail -n 1|awk '{print $3+1}'`
+		mem=`ssh root@$DBA_ip /usr/bin/free -g|grep 'Mem'|awk '{print $2}'`
+		disk=`ssh root@$DBA_ip fdisk -l 2>/dev/null|grep -E 'Disk /dev/sd|Disk /dev/xvd'|awk '{sum+=$5} END {print sum/1000/1000/1000}'`
+	fi
 
 	if [ "$mem" -le 32 ];then
 		((mem=$mem+1))
@@ -472,18 +446,11 @@ function Get_info()
 	##获取共享内存内sql数
 	Get_sga_sql "$DBA_ip"
 
-
-	##根据采集包模式运行相应的取包方法
-	if [ $DBA_RUN_PROCESS_MODE -eq 2 ];then 
-		##获取nfw状态文件信息
+	##获取nfw状态文件信息
+	if [ ${if_nfw} = 1 ];then
 		Get_dpdk_stats "$DBA_ip" "$DBA_eth_R"
-	elif [ $DBA_RUN_PROCESS_MODE -eq 0 ];then 
-		##获取收包网卡信息	
-		Get_eth_R_info "$DBA_ip" "$DBA_eth_R"	
-		##获取npc_stats信息
-		Get_npc_stats "$DBA_ip"
-	elif [ $DBA_RUN_PROCESS_MODE -eq 1 ];then
-		Get_rms_stats "$DBA_ip"
+	else
+		Get_npc_stats "$DBA_ip" "$DBA_eth_R"
 	fi
 
 	##获取发包网卡信息
@@ -568,14 +535,14 @@ function Get_info()
 ##定义DBA程序目录
 DBFW_HOME="/home/dbfw/dbfw"
 
-##得到DBA_PT.sh脚本所在目录
+##得到DBA_Server_PT.sh脚本所在目录
 DBA_PT_HOME_DIR="$( cd "$( dirname "$0"  )" && pwd  )"
 
-##创建DBA_PT.sh脚本生成.log的存放目录
+##创建DBA_Server_PT.sh脚本生成.log的存放目录
 LOGS_DIR="$DBA_PT_HOME_DIR/logs_dir"
 mkdir -p $LOGS_DIR
 
-##创建DBA_PT.sh脚本生成.report文件存放目录
+##创建DBA_Server_PT.sh脚本生成.report文件存放目录
 REPORTS_DIR="$DBA_PT_HOME_DIR/reports_dir"
 mkdir -p $REPORTS_DIR
 
@@ -592,54 +559,32 @@ TCPREPLAY_LOG_DIR="$DBA_PT_HOME_DIR/tcpreplay_log_dir"
 mkdir -p $TCPREPLAY_LOG_DIR
 
 ##定义连接trace_logs_detail_part表所在本地数据中心命令 
-DBCDataView_dc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9207 -uroot -p${DBC_pwd} --default-character-set=utf8"
-DBCDataView_tc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9208 -uroot -p${DBC_pwd} --default-character-set=utf8"
+DBCDataView_dc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9207 -uroot -pDBSec@1234 --default-character-set=utf8"
+DBCDataView_tc="$DBFW_HOME/DBCDataCenter/bin/DBCDataView -h127.0.0.1 -P9208 -uroot -pDBSec@1234 --default-character-set=utf8"
 
 ##得到产品版本号
-soft_version=`ssh root@$DBA_ip "$DBCDataView_dc dbfwsystem -N -e 'SELECT soft_major_version,soft_minor_version,soft_svn_version,soft_build_version FROM version_main ORDER BY id desc;'"`
+if [[ PT_RUN_DBA -eq 1 ]];then
+	soft_version=`$DBCDataView_dc dbfwsystem -N -e 'SELECT soft_major_version,soft_minor_version,soft_svn_version,soft_build_version FROM version_main ORDER BY id desc;'`
+else
+	soft_version=`ssh root@$DBA_ip "$DBCDataView_dc dbfwsystem -N -e 'SELECT soft_major_version,soft_minor_version,soft_svn_version,soft_build_version FROM version_main ORDER BY id desc;'"`
+fi
 soft_version=`echo $soft_version |sed 's/ /./g'`
 soft_version="`cat /etc/producttype`$soft_version"
 
-##得到系统cpu信息
-Get_Sys_Info
-
 ##定义log名称
 File_Name_Time=`date +'%Y%m%d%H%M%S'`
-PT_log_name="${soft_version}_CPU${SYS_CPU}_MEM${SYS_MEM}_PT_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}_$$.log"
+PT_log_name="${soft_version}_Server_PT_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}_$$.log"
 
 ##定义report名称
-PT_report_name="${soft_version}_CPU${SYS_CPU}_MEM${SYS_MEM}_PT_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}_$$.report"
-
-
-##得到产品的包采集模式
-DBA_RUN_PROCESS_MODE=`ssh root@$DBA_ip "$DBCDataView_dc dbfw -N -e 'SELECT param_value FROM param_config where param_id=121;'"`
-printf_log 1 "DBA_RUN_PROCESS_MODE:$DBA_RUN_PROCESS_MODE"
-if [[ $? != 0 ]];then
-        printf_log 1 "ssh root@$DBA_ip fail!"
-elif [ -n $DBA_RUN_PROCESS_MODE ];then
-        printf_log 1 "Get DBA_RUN_PROCESS_MODE Success!"
-else
-        printf_log 1 "Get DBA_RUN_PROCESS_MODE fail!"
-	exit
-fi
-
-##系统CPU、MEM信息写入日志
-printf_log 1 "Get DBA OS_CPU_Core=$SYS_CPU;OS_MEM=${SYS_MEM}G;OS_SYS_DISK=${SYS_DISK}G"
-
-# ##把DBA、打包机设置免密登录
-# mkdir -p /root/.ssh
-# chmod 0600 $DBA_PT_HOME_DIR/sshkey/{id_rsa,id_rsa.pub}
-# \cp -f $DBA_PT_HOME_DIR/sshkey/{id_rsa,id_rsa.pub} /root/.ssh/
-# mv /root/.ssh/{id_rsa.pub,authorized_keys}
-# ssh_keygen_login "${DBA_ip}" "y"
-# printf_log 1 "$DBA_ip ssh_keygen_login success!"
-# ssh_keygen_login "${tcpreplay_ip}" "y"
-# printf_log 1 "$tcpreplay_ip ssh_keygen_login success!"
-
+PT_report_name="${soft_version}_Server_PT_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}_$$.report"
 
 ##判断是否为双数据中心
 ###trace_logs_detail_part表所处数据中心端口
-port=`ssh root@$DBA_ip cat ${DBFW_HOME}/etc/dbfw50.ini|grep "__DATASERVER_PORT_FOR_TLS"|awk -F= '{print $2}'`
+if [[ PT_RUN_DBA -eq 1 ]];then
+	port=`cat ${DBFW_HOME}/etc/dbfw50.ini|grep "__DATASERVER_PORT_FOR_TLS"|awk -F= '{print $2}'`
+else
+	port=`ssh root@$DBA_ip cat ${DBFW_HOME}/etc/dbfw50.ini|grep "__DATASERVER_PORT_FOR_TLS"|awk -F= '{print $2}'`
+fi
 if [[ $port -eq 9207 ]];then
         DBC_count=1
         printf_log 1 "DBC_count=1"
@@ -651,41 +596,31 @@ fi
 ##查看打包机及DBA的kernel版本
 tcpreplay_kernel_version=`ssh root@$tcpreplay_ip "uname -r"|awk -F. '{print $(NF-1)}'`
 printf_log 1 "Get tcpreplay_kernel_version=$tcpreplay_kernel_version"
-DBA_kernel_version=`ssh root@$DBA_ip "uname -r"|awk -F. '{print $(NF-1)}'`
+if [[ PT_RUN_DBA -eq 1 ]];then
+	DBA_kernel_version=`uname -r|awk -F. '{print $(NF-1)}'`
+else
+	DBA_kernel_version=`ssh root@$DBA_ip "uname -r"|awk -F. '{print $(NF-1)}'`
+fi
 printf_log 1 "Get DBA_kernel_version=$DBA_kernel_version"
 
-##如果原来有残留此脚本启动的tcpreplay，kill掉（此脚本没有运行完，异常或正常中断时可能会有）
-tcpreplay_pid_list=`ssh root@$tcpreplay_ip ps -ef |grep "tcpreplay"|grep "$tcpreplay_eth_T" |grep -v "grep" |awk '{print $2}'`
-if [[ -n ${tcpreplay_pid_list} ]];then
-	ssh root@$tcpreplay_ip kill -9 ${tcpreplay_pid_list}
-	printf_log 1 "tcpreplay run before,kill surplus tcpreplay:${tcpreplay_pid_list} success"
-	while true
-		do
-			tlog_file_exist_flag=`ssh root@$DBA_ip ls -l /dbfw_tlog/ |grep -v "total" |wc -l`
-			if [[ ${tlog_file_exist_flag} -gt 0 ]];then
-				printf_log 1 "Before packing,tlog file exist,Please check the reason and remove!"
-				sleep 20
-			else
-				printf_log 1 "Before packing,tlog file not exist,20s later begin formally!"
-				sleep 20
-				break
-			fi	
-		done
-fi
-
-##如果原来有残留此脚本启的nmon，kill掉（此脚本没有运行完，异常或正常中断时会有）
-nmon_pid_list=`ssh root@$DBA_ip ps -ef|grep nmon|grep 5760|awk '{print $2}'`
-if [[ -n ${nmon_pid_list} ]];then
-	ssh root@$DBA_ip kill -9 ${nmon_pid_list}
-	printf_log 1 "nmon run before,kill surplus nmon:${nmon_pid_list} success"
-fi
+##得到系统cpu信息
+Get_Sys_Info
+printf_log 1 "Get DBA OS_CPU_Core=$SYS_CPU;OS_MEM=${SYS_MEM}G;OS_SYS_DISK=${SYS_DISK}G"
 
 ##打包前启动nmon，Get_info前起码有一次nmon数据
-ssh root@$DBA_ip mkdir -p $NMONS_DIR
-ssh root@$DBA_ip /usr/bin/nmon -s5 -c5760 -f -m $NMONS_DIR > /dev/null 2>&1
-nmon_pid=`ssh root@$DBA_ip ps -ef|grep "/usr/bin/nmon -s"|grep -v "grep"|awk '{print $2}'`
-nmon_file_name=`ls -l $NMONS_DIR |tail -n1|awk '{print $NF}'`
-nmon_file_name="$NMONS_DIR/$nmon_file_name"
+if [[ PT_RUN_DBA -eq 1 ]];then
+	mkdir -p $NMONS_DIR
+	/usr/bin/nmon -s5 -c5760 -f -m $NMONS_DIR > /dev/null 2>&1
+	nmon_pid=`ps -ef|grep "/usr/bin/nmon -s"|grep -v "grep"|awk '{print $2}'`
+	nmon_file_name=`ls -l $NMONS_DIR |tail -n1|awk '{print $NF}'`
+	nmon_file_name="$NMONS_DIR/$nmon_file_name"
+else
+	mkdir -p $NMONS_DIR
+	/usr/bin/nmon -s5 -c5760 -f -m $NMONS_DIR > /dev/null 2>&1
+	nmon_pid=`ps -ef|grep "/usr/bin/nmon -s"|grep -v "grep"|awk '{print $2}'`
+	nmon_file_name=`ls -l $NMONS_DIR |tail -n1|awk '{print $NF}'`
+	nmon_file_name="$NMONS_DIR/$nmon_file_name"
+fi
 printf_log 1 "nmon Begin run! nmon_pid=$nmon_pid,output file:$nmon_file_name"
 
 ##定义取nmon最新数据条数
@@ -736,7 +671,6 @@ DBA_PT_CONFIG,tcpreplay_ip,$tcpreplay_ip\n\
 DBA_PT_CONFIG,tcpreplay_eth_T,$tcpreplay_eth_T\n\
 DBA_PT_CONFIG,Get_info_cycle,$Get_info_cycle\n\
 DBA_PT_CONFIG,PT_RUN_DBA,$PT_RUN_DBA\n\
-DBA_PT_CONFIG,DBA_RUN_PROCESS_MODE,$DBA_RUN_PROCESS_MODE\n\
 DBA_PT_CONFIG,eth_drive_map,\n\
 DBA_PT_CONFIG,expect_pcap,$expect_pcap_tot\n\
 DBA_PT_CONFIG,expect_sql,$expect_sql_tot\n\
@@ -759,18 +693,9 @@ DBA_PT_CONFIG,tls_summary_time,"\
 
 echo "Get_info_time,MEMORY_MB,Total_Time,mem_total,mem_free,mem_used,mem_used_per"\
 	>> $REPORTS_DIR/$PT_report_name
-	
-if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-	echo "Get_info_time,PCAP_TOT_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,dpdk_rx_pkt_tot,dpdk_rx_pkt_err,dpdk_drop_pkt_hw,dpdk_drop_pkt_tot"\
-	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-	echo "Get_info_time,PCAP_TOT_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,DBA_Rx_pck,DBA_R_d_pck,npc_rx_all_pkt_tot"\
-	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-	echo "Get_info_time,PCAP_TOT_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,DBA_Rx_pck,DBA_R_d_pck,npc_rx_all_pkt_tot"\
-	>> $REPORTS_DIR/$PT_report_name
-fi
 
+echo "Get_info_time,PCAP_TOT_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,dpdk_rx_pkt_tot,dpdk_rx_pkt_err,dpdk_drop_pkt_hw,dpdk_drop_pkt_tot"\
+	>> $REPORTS_DIR/$PT_report_name
 echo "Get_info_time,SQL_TOT_COUNT,Total_Time,expect_sql,sga_sql,inst_db_count_sql"\
 	>> $REPORTS_DIR/$PT_report_name
 echo "Get_info_time,TLOG_TOT_COUNT,Total_Time,expect_count,sga_count,trace_count,index_count,summary_count"\
@@ -781,35 +706,15 @@ echo "Get_info_time,TO_LOOSE_TOT_COUNT,Total_Time,Begin_to_loose_count"\
 echo "Get_info_time,TLOG_LAG_COUNT,Total_Time,pcap2sga_lag_time,sga2trace_lag_time,sga2index_lag_time,sga2summary_lag_time,trace2summary_lag_time"\
 	>> $REPORTS_DIR/$PT_report_name
 
-if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-	echo "Get_info_time,PCAP_TOT_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,dpdk_rx_pkt_tot/s,dpdk_rx_pkt_err/s,dpdk_drop_pkt_hw/s,dpdk_drop_pkt_tot/s"\
+echo "Get_info_time,PCAP_TOT_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,dpdk_rx_pkt_tot/s,dpdk_rx_pkt_err/s,dpdk_drop_pkt_hw/s,dpdk_drop_pkt_tot/s"\
 	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-	echo "Get_info_time,PCAP_TOT_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,DBA_Rx_pck/s,DBA_R_d_pck/s,npc_rx_all_pkt_tot/s"\
-	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-	echo "Get_info_time,PCAP_TOT_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,rms_rx_all_pkt_tot/s,rms_rx_db_pkt_tot/s"\
-	>> $REPORTS_DIR/$PT_report_name
-fi	
-	
-	
-
 echo "Get_info_time,SQL_TOT_PS_COUNT,Total_Time,expect_sql/s,sga_sql/s,inst_db_count_sql/s"\
 	>> $REPORTS_DIR/$PT_report_name
 echo "Get_info_time,TLOG_TOT_PS_COUNT,Total_Time,expect_count/s,sga_count/s,trace_count/s,index_count/s,summary_count/s"\
 	>> $REPORTS_DIR/$PT_report_name
 
-if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-	echo "Get_info_time,PCAP_CYC_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,dpdk_rx_pkt_tot,dpdk_rx_pkt_err,dpdk_drop_pkt_hw,dpdk_drop_pkt_tot"\
+echo "Get_info_time,PCAP_CYC_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,dpdk_rx_pkt_tot,dpdk_rx_pkt_err,dpdk_drop_pkt_hw,dpdk_drop_pkt_tot"\
 	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-	echo "Get_info_time,PCAP_CYC_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,DBA_Rx_pck,DBA_R_d_pck,npc_rx_all_pkt_tot"\
-	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-	echo "Get_info_time,PCAP_CYC_COUNT,Total_Time,tcpreplay_Tx_pck,tcpreplay_T_d_pck,rms_rx_all_pkt_tot,rms_rx_db_pkt_tot"\
-	>> $REPORTS_DIR/$PT_report_name
-fi
-	
 echo "Get_info_time,SQL_CYC_COUNT,Total_Time,expect_sql,sga_sql,db_count_sql"\
 	>> $REPORTS_DIR/$PT_report_name
 echo "Get_info_time,TLOG_CYC_COUNT,Total_Time,expect_count,sga_count,trace_count,index_count,summary_count"\
@@ -817,17 +722,8 @@ echo "Get_info_time,TLOG_CYC_COUNT,Total_Time,expect_count,sga_count,trace_count
 echo "Get_info_time,TO_LOOSE_CYC_COUNT,Total_Time,Begin_to_loose_count"\
 	>> $REPORTS_DIR/$PT_report_name
 
-if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-	echo "Get_info_time,PCAP_CYC_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,dpdk_rx_pkt_tot/s,dpdk_rx_pkt_err/s,dpdk_drop_pkt_hw/s,dpdk_drop_pkt_tot/s"\
+echo "Get_info_time,PCAP_CYC_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,dpdk_rx_pkt_tot/s,dpdk_rx_pkt_err/s,dpdk_drop_pkt_hw/s,dpdk_drop_pkt_tot/s"\
 	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-	echo "Get_info_time,PCAP_CYC_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,DBA_Rx_pck/s,DBA_R_d_pck/s,npc_rx_all_pkt_tot/s"\
-	>> $REPORTS_DIR/$PT_report_name
-elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-	echo "Get_info_time,PCAP_CYC_PS_COUNT,Total_Time,tcpreplay_Tx_pck/s,tcpreplay_T_d_pck/s,rms_rx_all_pkt_tot/s,rms_rx_db_pkt_tot/s"\
-	>> $REPORTS_DIR/$PT_report_name
-fi
-
 echo "Get_info_time,SQL_CYC_PS_COUNT,Total_Time,expect_sql/s,sga_sql/s,db_count_sql/s"\
 	>> $REPORTS_DIR/$PT_report_name
 echo "Get_info_time,TLOG_CYC_PS_COUNT,Total_Time,expect_count/s,sga_count/s,trace_count/s,index_count/s,summary_count/s"\
@@ -863,21 +759,10 @@ echo "[$Get_info_Time_b],TLOG_CYC_PS_COUNT,$Total_Time,0,0,0,0" >> $REPORTS_DIR/
 
 tcpreplay_Tx_pck_old="$tcpreplay_Tx_pck"
 tcpreplay_T_d_pck_old="$tcpreplay_T_d_pck"
-
-if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-	dpdk_rx_pkt_tot_old="$dpdk_rx_pkt_tot"
-	dpdk_rx_pkt_err_old="$dpdk_rx_pkt_err"
-	dpdk_drop_pkt_hw_old="$dpdk_drop_pkt_hw"
-	dpdk_drop_pkt_tot_old="$dpdk_drop_pkt_tot"
-elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-	DBA_Rx_pck_old="$DBA_Rx_pck"
-	DBA_R_d_pck_old="$DBA_R_d_pck"
-	npc_rx_all_pkt_tot_old="$npc_rx_all_pkt_tot"
-elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-	rms_rx_all_pkt_tot_old="$rms_rx_all_pkt_tot"
-	rms_rx_db_pkt_tot_old="$rms_rx_db_pkt_tot"
-fi
-
+dpdk_rx_pkt_tot_old="$dpdk_rx_pkt_tot"
+dpdk_rx_pkt_err_old="$dpdk_rx_pkt_err"
+dpdk_drop_pkt_hw_old="$dpdk_drop_pkt_hw"
+dpdk_drop_pkt_tot_old="$dpdk_drop_pkt_tot"
 sga_sql_old="$sga_sql"
 sga_count_old="$sga_sql"
 db_count_sql_old="$db_count_sql"
@@ -888,21 +773,10 @@ Begin_to_loose_count="$Begin_to_loose_count_old"
 
 tcpreplay_Tx_pck_base="$tcpreplay_Tx_pck"
 tcpreplay_T_d_pck_base="$tcpreplay_T_d_pck"
-
-if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-	dpdk_rx_pkt_tot_base="$dpdk_rx_pkt_tot"
-	dpdk_rx_pkt_err_base="$dpdk_rx_pkt_err"
-	dpdk_drop_pkt_hw_base="$dpdk_drop_pkt_hw"
-	dpdk_drop_pkt_tot_base="$dpdk_drop_pkt_tot"
-elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-	DBA_Rx_pck_base="$DBA_Rx_pck"
-	DBA_R_d_pck_base="$DBA_R_d_pck"
-	npc_rx_all_pkt_tot_base="$npc_rx_all_pkt_tot"
-elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-	rms_rx_all_pkt_tot_base="$rms_rx_all_pkt_tot"
-	rms_rx_db_pkt_tot_base="$rms_rx_db_pkt_tot"
-fi
-
+dpdk_rx_pkt_tot_base="$dpdk_rx_pkt_tot"
+dpdk_rx_pkt_err_base="$dpdk_rx_pkt_err"
+dpdk_drop_pkt_hw_base="$dpdk_drop_pkt_hw"
+dpdk_drop_pkt_tot_base="$dpdk_drop_pkt_tot"
 sga_sql_base="$sga_sql"
 sga_count_base="$sga_sql"
 db_count_sql_base="$db_count_sql"
@@ -921,13 +795,9 @@ printf_log 1 "expect_pcap=$expect_pcap"
 printf_log 1 "expect_sql=$expect_sql"
 printf_log 1 "Get_info_cycle=$Total_Time"
 printf_log 1 "PT_RUN_DBA=$PT_RUN_DBA"
+printf_log 1 "eth_drive_map=$eth_drive_map"
 
-##只有在2模式时才进行此操作
-if [ $DBA_RUN_PROCESS_MODE -eq 2 ];then                                  
-	printf_log 1 "eth_drive_map=$eth_drive_map"
-	sed -i "s/eth_drive_map,/eth_drive_map,$eth_drive_map/" $REPORTS_DIR/$PT_report_name
-fi
-
+sed -i "s/eth_drive_map,/eth_drive_map,$eth_drive_map/" $REPORTS_DIR/$PT_report_name
 sed -i "s/trace_count_base,/trace_count_base,$trace_count/" $REPORTS_DIR/$PT_report_name
 
 ##启动tcpreplay
@@ -1021,34 +891,21 @@ while true
 			printf_log 1 "trace2summary_Total_Time=$trace2summary_Total_Time"	
 			sed5_flag=0
 		else
-	
-			##加个统一是否彻底完成的条件,最后一次统一等2分钟20秒以上,因为有可能进入2分针后才统一的tls逻辑
-			if [[ $Get_info_cycle -le 20 ]];then	
-				((maximum_interval_num=180/Get_info_cycle+20/Get_info_cycle+1))	
-			else
-				((maximum_interval_num=180/Get_info_cycle))
-			fi
-
-
-			if [[ "$sed5_flag" -eq 0 ]];then
+			if [[ $sed5_flag -eq 0 ]];then
 				((tls_summary_time=Total_Time-Get_info_cycle))
-                                sed -i "s/tls_summary_time,.*$/tls_summary_time,$tls_summary_time/" $REPORTS_DIR/$PT_report_name
+				sed -i "s/tls_summary_time,.*$/tls_summary_time,$tls_summary_time/" $REPORTS_DIR/$PT_report_name 
+				((sed5_flag=sed5_flag+1))
 			fi
-
-			((sed5_flag=sed5_flag+1))
-
-			printf_log 1 "now sed5_flag=$sed5_flag cyc_summary_count=0"	
+			printf_log 1 "now cyc_summary_count=0"	
 		fi
 
 		((tot_tcpreplay_Tx_pck=tcpreplay_Tx_pck-tcpreplay_Tx_pck_base))
 		((tot_tcpreplay_T_d_pck=tcpreplay_T_d_pck-tcpreplay_T_d_pck_base))
-		
-		if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-			((tot_dpdk_rx_pkt_tot=dpdk_rx_pkt_tot-dpdk_rx_pkt_tot_base))
-			((tot_dpdk_rx_pkt_err=dpdk_rx_pkt_err-dpdk_rx_pkt_err_base))
-			((tot_dpdk_drop_pkt_hw=dpdk_drop_pkt_hw-dpdk_drop_pkt_hw_base))
-			((tot_dpdk_drop_pkt_tot=dpdk_drop_pkt_tot-dpdk_drop_pkt_tot_base))
-			echo "[$Get_info_Time_b],PCAP_TOT_COUNT,$Total_Time,\
+		((tot_dpdk_rx_pkt_tot=dpdk_rx_pkt_tot-dpdk_rx_pkt_tot_base))
+		((tot_dpdk_rx_pkt_err=dpdk_rx_pkt_err-dpdk_rx_pkt_err_base))
+		((tot_dpdk_drop_pkt_hw=dpdk_drop_pkt_hw-dpdk_drop_pkt_hw_base))
+		((tot_dpdk_drop_pkt_tot=dpdk_drop_pkt_tot-dpdk_drop_pkt_tot_base))	
+		echo "[$Get_info_Time_b],PCAP_TOT_COUNT,$Total_Time,\
 $tot_tcpreplay_Tx_pck,\
 $tot_tcpreplay_T_d_pck,\
 $tot_dpdk_rx_pkt_tot,\
@@ -1056,27 +913,7 @@ $tot_dpdk_rx_pkt_err,\
 $tot_dpdk_drop_pkt_hw,\
 $tot_dpdk_drop_pkt_tot"\
 >> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-			((tot_DBA_Rx_pck=DBA_Rx_pck-DBA_Rx_pck_base))
-			((tot_DBA_R_d_pck=DBA_R_d_pck-DBA_R_d_pck_base))
-			((tot_npc_rx_all_pkt_tot=npc_rx_all_pkt_tot-npc_rx_all_pkt_tot_base))
-			echo "[$Get_info_Time_b],PCAP_TOT_COUNT,$Total_Time,\
-$tot_tcpreplay_Tx_pck,\
-$tot_tcpreplay_T_d_pck,\
-$tot_DBA_Rx_pck,\
-$tot_DBA_R_d_pck,\
-$tot_npc_rx_all_pkt_tot"\
->> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-			((tot_rms_rx_all_pkt_tot=rms_rx_all_pkt_tot-rms_rx_all_pkt_tot_base))
-			((tot_rms_rx_db_pkt_tot=rms_rx_db_pkt_tot-rms_rx_db_pkt_tot_base))
-			echo "[$Get_info_Time_b],PCAP_TOT_COUNT,$Total_Time,\
-$tot_tcpreplay_Tx_pck,\
-$tot_tcpreplay_T_d_pck,\
-$tot_rms_rx_all_pkt_tot,\
-$tot_rms_rx_db_pkt_tot"\
->> $REPORTS_DIR/$PT_report_name
-		fi
+
 
 		((tot_expect_sql=expect_sql_tot*tot_tcpreplay_Tx_pck/expect_pcap_tot))
 		((tot_sga_sql=sga_sql-sga_sql_base))		
@@ -1107,42 +944,12 @@ $tot_Begin_to_loose_count"\
 		((ps_tot_sga_count=tot_sga_count/expect2sga_Total_Time))
 		
 		##这一块还就有bug有时间了再查（偶尔可能会出现分母为0的情况,但是不知道是哪一个）
-		if [[ $tot_sga_count -eq 0 ]];then
-			printf_log 0 "tot_sga_count:$tot_sga_count"
-			printf_log 0 "tcpreplay param error or DBA error!"	
+		if [[ $tot_sga_count -eq 0 ]] || [[ $tot_trace_count -eq 0 ]] || [[ $tot_summary_count -eq 0 ]];then
+			printf 1 "tcpreplay param error or DBA error!"	
 			exit
-
-		elif [[ $tot_trace_count -eq 0 ]];then
-			##得到产品的是不是满足规则审计
-			S_AUD_SWITCH=`ssh root@$DBA_ip "$DBCDataView_dc dbfw -N -e 'SELECT param_value FROM param_config where param_id=142;'"`
-			printf_log 1 "S_AUD_SWITCH:$S_AUD_SWITCH"
-			##如果不是满足规则审计
-			if [[ $S_AUD_SWITCH -eq 1 ]];then
-				printf_log 0 "tot_trace_count:$tot_trace_count"
-				printf_log 0 "tcpreplay param error or DBA error!"	
-				exit
-			else
-				echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
-$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
-0,\
-0,\
-0,\
-0"\
->> $REPORTS_DIR/$PT_report_name
-	
-			fi
 
 		#elif [[ $tot_index_count -eq 0 ]] && [[ $Get_Date_num -ge 3 ]];then
 		#	printf 1 "tcpreplay param error or DBA error!"	
-
-		elif [[ $tot_index_count -eq 0 ]] && [[ $tot_summary_count -eq 0 ]];then
-                        echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
-$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
-$(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
-0,\
-0,\
-0"\
->> $REPORTS_DIR/$PT_report_name
 
                 elif [[ $tot_index_count -eq 0 ]];then
                         echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
@@ -1152,16 +959,6 @@ $(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
 $(((tot_sga_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time))),\
 $(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Time)))"\
 >> $REPORTS_DIR/$PT_report_name
-
-                elif [[ $tot_summary_count -eq 0 ]];then
-                        echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
-$(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
-$(((tot_sga_count-tot_trace_count)/(tot_trace_count/sga2trace_Total_Time))),\
-$(((tot_sga_count-tot_index_count)/(tot_index_count/sga2index_Total_Time))),\
-0,\
-0"\
->> $REPORTS_DIR/$PT_report_name
-
                 else
                         echo "[$Get_info_Time_b],TLOG_LAG_COUNT,$Total_Time,\
 $(((tot_expect_sql-tot_sga_count)/(tot_sga_count/expect2sga_Total_Time))),\
@@ -1172,8 +969,7 @@ $(((tot_trace_count-tot_summary_count)/(tot_summary_count/trace2summary_Total_Ti
 >> $REPORTS_DIR/$PT_report_name
                 fi
 
-		if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-			echo "[$Get_info_Time_b],PCAP_TOT_PS_COUNT,$Total_Time,\
+		echo "[$Get_info_Time_b],PCAP_TOT_PS_COUNT,$Total_Time,\
 $((tot_tcpreplay_Tx_pck/expect2fact_Total_Time)),\
 $((tot_tcpreplay_T_d_pck/expect2fact_Total_Time)),\
 $((tot_dpdk_rx_pkt_tot/expect2fact_Total_Time)),\
@@ -1181,22 +977,6 @@ $((tot_dpdk_rx_pkt_err/expect2fact_Total_Time)),\
 $((tot_dpdk_drop_pkt_hw/expect2fact_Total_Time)),\
 $((tot_dpdk_drop_pkt_tot/expect2fact_Total_Time))"\
 >> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-			echo "[$Get_info_Time_b],PCAP_TOT_PS_COUNT,$Total_Time,\
-$((tot_tcpreplay_Tx_pck/expect2fact_Total_Time)),\
-$((tot_tcpreplay_T_d_pck/expect2fact_Total_Time)),\
-$((tot_DBA_Rx_pck/expect2fact_Total_Time)),\
-$((tot_DBA_R_d_pck/expect2fact_Total_Time)),\
-$((tot_npc_rx_all_pkt_tot/expect2fact_Total_Time))"\
->> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-			echo "[$Get_info_Time_b],PCAP_TOT_PS_COUNT,$Total_Time,\
-$((tot_tcpreplay_Tx_pck/expect2fact_Total_Time)),\
-$((tot_tcpreplay_T_d_pck/expect2fact_Total_Time)),\
-$((tot_rms_rx_all_pkt_tot/expect2fact_Total_Time)),\
-$((tot_rms_rx_db_pkt_tot/expect2fact_Total_Time))"\
->> $REPORTS_DIR/$PT_report_name
-		fi				
 
 		echo "[$Get_info_Time_b],SQL_TOT_PS_COUNT,$Total_Time,\
 $((tot_expect_sql/expect2fact_Total_Time)),\
@@ -1212,14 +992,14 @@ $((tot_index_count/sga2index_Total_Time)),\
 $((tot_summary_count/trace2summary_Total_Time))"\
 >> $REPORTS_DIR/$PT_report_name
 
-		if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-			((cyc_tcpreplay_Tx_pck=tcpreplay_Tx_pck-tcpreplay_Tx_pck_old))	
-			((cyc_tcpreplay_T_d_pck=tcpreplay_T_d_pck-tcpreplay_T_d_pck_old))
-			((cyc_dpdk_rx_pkt_tot=dpdk_rx_pkt_tot-dpdk_rx_pkt_tot_old))
-			((cyc_dpdk_rx_pkt_err=dpdk_rx_pkt_err-dpdk_rx_pkt_err_old))
-			((cyc_dpdk_drop_pkt_hw=dpdk_drop_pkt_hw-dpdk_drop_pkt_hw_old))
-			((cyc_dpdk_drop_pkt_tot=dpdk_drop_pkt_tot-dpdk_drop_pkt_tot_old))
-			echo "[$Get_info_Time_b],PCAP_CYC_COUNT,$Total_Time,\
+
+		((cyc_tcpreplay_Tx_pck=tcpreplay_Tx_pck-tcpreplay_Tx_pck_old))	
+		((cyc_tcpreplay_T_d_pck=tcpreplay_T_d_pck-tcpreplay_T_d_pck_old))
+		((cyc_dpdk_rx_pkt_tot=dpdk_rx_pkt_tot-dpdk_rx_pkt_tot_old))
+		((cyc_dpdk_rx_pkt_err=dpdk_rx_pkt_err-dpdk_rx_pkt_err_old))
+		((cyc_dpdk_drop_pkt_hw=dpdk_drop_pkt_hw-dpdk_drop_pkt_hw_old))
+		((cyc_dpdk_drop_pkt_tot=dpdk_drop_pkt_tot-dpdk_drop_pkt_tot_old))
+		echo "[$Get_info_Time_b],PCAP_CYC_COUNT,$Total_Time,\
 $cyc_tcpreplay_Tx_pck,\
 $cyc_tcpreplay_T_d_pck,\
 $cyc_dpdk_rx_pkt_tot,\
@@ -1227,31 +1007,6 @@ $cyc_dpdk_rx_pkt_err,\
 $cyc_dpdk_drop_pkt_hw,\
 $cyc_dpdk_drop_pkt_tot"\
 >> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-			((cyc_tcpreplay_Tx_pck=tcpreplay_Tx_pck-tcpreplay_Tx_pck_old))	
-			((cyc_tcpreplay_T_d_pck=tcpreplay_T_d_pck-tcpreplay_T_d_pck_old))
-			((cyc_DBA_Rx_pck=DBA_Rx_pck-DBA_Rx_pck_old))
-			((cyc_DBA_R_d_pck=DBA_R_d_pck-DBA_R_d_pck_old))
-			((cyc_npc_rx_all_pkt_tot=npc_rx_all_pkt_tot-npc_rx_all_pkt_tot_old))
-			echo "[$Get_info_Time_b],PCAP_CYC_COUNT,$Total_Time,\
-$cyc_tcpreplay_Tx_pck,\
-$cyc_tcpreplay_T_d_pck,\
-$cyc_DBA_Rx_pck,\
-$cyc_DBA_R_d_pck,\
-$cyc_npc_rx_all_pkt_tot"\
->> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-			((cyc_tcpreplay_Tx_pck=tcpreplay_Tx_pck-tcpreplay_Tx_pck_old))	
-			((cyc_tcpreplay_T_d_pck=tcpreplay_T_d_pck-tcpreplay_T_d_pck_old))
-			((cyc_rms_rx_all_pkt_tot=rms_rx_all_pkt_tot-rms_rx_all_pkt_tot_old))
-			((cyc_rms_rx_db_pkt_tot=rms_rx_db_pkt_tot-rms_rx_db_pkt_tot_old))
-			echo "[$Get_info_Time_b],PCAP_CYC_COUNT,$Total_Time,\
-$cyc_tcpreplay_Tx_pck,\
-$cyc_tcpreplay_T_d_pck,\
-$cyc_rms_rx_all_pkt_tot,\
-$cyc_rms_rx_db_pkt_tot"\
->> $REPORTS_DIR/$PT_report_name
-		fi
 
 		echo "[$Get_info_Time_b],SQL_CYC_COUNT,$Total_Time,\
 $cyc_expect_sql,\
@@ -1272,8 +1027,7 @@ $cyc_summary_count"\
 $cyc_Begin_to_loose_count"\
 >> $REPORTS_DIR/$PT_report_name
 
-		if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-			echo "[$Get_info_Time_b],PCAP_CYC_PS_COUNT,$Total_Time,\
+		echo "[$Get_info_Time_b],PCAP_CYC_PS_COUNT,$Total_Time,\
 $((cyc_tcpreplay_Tx_pck/Get_info_cycle)),\
 $((cyc_tcpreplay_T_d_pck/Get_info_cycle)),\
 $((cyc_dpdk_rx_pkt_tot/Get_info_cycle)),\
@@ -1281,24 +1035,6 @@ $((cyc_dpdk_rx_pkt_err/Get_info_cycle)),\
 $((cyc_dpdk_drop_pkt_hw/Get_info_cycle)),\
 $((cyc_dpdk_drop_pkt_tot/Get_info_cycle))"\
 >> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-			echo "[$Get_info_Time_b],PCAP_CYC_PS_COUNT,$Total_Time,\
-$((cyc_tcpreplay_Tx_pck/Get_info_cycle)),\
-$((cyc_tcpreplay_T_d_pck/Get_info_cycle)),\
-$((cyc_DBA_Rx_pck/Get_info_cycle)),\
-$((cyc_DBA_R_d_pck/Get_info_cycle)),\
-$((cyc_npc_rx_all_pkt_tot/Get_info_cycle))"\
->> $REPORTS_DIR/$PT_report_name
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-			echo "[$Get_info_Time_b],PCAP_CYC_PS_COUNT,$Total_Time,\
-$((cyc_tcpreplay_Tx_pck/Get_info_cycle)),\
-$((cyc_tcpreplay_T_d_pck/Get_info_cycle)),\
-$((cyc_rms_rx_all_pkt_tot/Get_info_cycle)),\
-$((cyc_rms_rx_db_pkt_tot/Get_info_cycle))"\
->> $REPORTS_DIR/$PT_report_name
-		fi
-
-
 
 		echo "[$Get_info_Time_b],SQL_CYC_PS_COUNT,$Total_Time,\
 $((cyc_expect_sql/Get_info_cycle)),\
@@ -1323,26 +1059,12 @@ $((cyc_summary_count/Get_info_cycle))"\
 		Count_data_time=`awk -v a=$Count_data_after_time -v b=$Count_data_after_time 'BEGIN{print b-a}'`
 		printf_log 1 "Count_data_time=$Count_data_time"
 
-		if [[ $DBA_RUN_PROCESS_MODE -eq 2 ]];then
-			tcpreplay_Tx_pck_old="$tcpreplay_Tx_pck"
-			tcpreplay_T_d_pck_old="$tcpreplay_T_d_pck"
-			dpdk_rx_pkt_tot_old="$dpdk_rx_pkt_tot"
-			dpdk_rx_pkt_err_old="$dpdk_rx_pkt_err"
-			dpdk_drop_pkt_hw_old="$dpdk_drop_pkt_hw"
-			dpdk_drop_pkt_tot_old="$dpdk_drop_pkt_tot"
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 0 ]];then
-			tcpreplay_Tx_pck_old="$tcpreplay_Tx_pck"
-			tcpreplay_T_d_pck_old="$tcpreplay_T_d_pck"
-			DBA_Rx_pck_old="$DBA_Rx_pck"
-			DBA_R_d_pck_old="$DBA_R_d_pck"
-			npc_rx_all_pkt_tot_old="$npc_rx_all_pkt_tot"
-		elif [[ $DBA_RUN_PROCESS_MODE -eq 1 ]];then
-			tcpreplay_Tx_pck_old="$tcpreplay_Tx_pck"
-			tcpreplay_T_d_pck_old="$tcpreplay_T_d_pck"
-			rms_rx_all_pkt_tot_old="$rms_rx_all_pkt_tot"
-			rms_rx_db_pkt_tot_old="$rms_rx_db_pkt_tot"
-		fi
-
+		tcpreplay_Tx_pck_old="$tcpreplay_Tx_pck"
+		tcpreplay_T_d_pck_old="$tcpreplay_T_d_pck"
+		dpdk_rx_pkt_tot_old="$dpdk_rx_pkt_tot"
+		dpdk_rx_pkt_err_old="$dpdk_rx_pkt_err"
+		dpdk_drop_pkt_hw_old="$dpdk_drop_pkt_hw"
+		dpdk_drop_pkt_tot_old="$dpdk_drop_pkt_tot"
 		sga_sql_old="$sga_sql"
 		sga_count_old="$sga_sql"
 		db_count_sql_old="$db_count_sql"
@@ -1362,28 +1084,32 @@ $((cyc_summary_count/Get_info_cycle))"\
 
 		printf_log 1 "Get_info cycle=$Total_Time next time=`date -d @$Get_info_Time '+%Y-%m-%d %H:%M:%S'`"
 		
-		tcpreplay_run_flag=`ssh root@$tcpreplay_ip ps -ef |grep "$tcpreplay_cmd_tmp" |grep -v "grep"|wc -l`		
+		echo ssh root@$tcpreplay_ip ps -ef |grep "tcpreplay" |grep "$tcpreplay_eth_T" |grep -v "grep"|wc -l
+		tcpreplay_run_flag=`ssh root@$tcpreplay_ip ps -ef |grep "tcpreplay" |grep "$tcpreplay_eth_T" |grep -v "grep"|wc -l`
+		echo "tcpreplay_run_flag=$tcpreplay_run_flag"
+		echo "tcpreplay_cmd_tmp"$tcpreplay_cmd_tmp
+		echo 'ps -ef |grep "$tcpreplay_cmd_tmp" |grep -v "grep"|wc -l'
 		printf_log 1 "tcpreplay_run_flag=$tcpreplay_run_flag"
-		printf_log 1 "cyc_expect_sql_flag=$cyc_expect_sql"
-		printf_log 1 "cyc_sga_count_flag=$cyc_sga_count"
-		tlog_file_complete_flag=`ssh root@$DBA_ip ls -l /dbfw_tlog/ |grep -v "total" |wc -l`
+		if [[ PT_RUN_DBA -eq 1 ]];then
+			tlog_file_complete_flag=`ls -l /dbfw_tlog |grep -v "total" |wc -l`
+			xml_file_complete_flag=`find /tmp/shm/ |grep -E -v 'shm/$|/0$|/1$|/2$|3$'|wc -l`	
+		else
+			tlog_file_complete_flag=`ssh root@$DBA_ip ls -l /dbfw_tlog |grep -v "total" |wc -l`
+			xml_file_complete_flag=`ssh root@$DBA_ip find /tmp/shm/ |grep -E -v 'shm/$|/0$|/1$|/2$|3$'|wc -l`	
+		fi
 		printf_log 1 "tlog_file_complete_flag=$tlog_file_complete_flag"
 		printf_log 1 "tlog_table_complete_flag=$cyc_trace_count"
-		xml_file_complete_flag=`ssh root@$DBA_ip find /tmp/shm/ |grep -E -v 'shm/$|/0$|/1$|/2$|3$'|wc -l`	
 		printf_log 1 "xml_file_complete_flag=$xml_file_complete_flag"
 		printf_log 1 "xml_table_complete_flag=$xml_table_complete_flag"
 		printf_log 1 "summary_complete_flag=$summary_complete_flag"
 
-		##加了个统一彻底完成的判断条件:sed5_flag是否等于maximum_interval_num
+
 		if [[ $tcpreplay_run_flag -eq 0 ]] && \
-		   [[ $cyc_expect_sql -eq 0 ]] && \
-		   [[ $cyc_sga_count -eq 0 ]] && \
 		   [[ $tlog_file_complete_flag -eq 0 ]] && \
 		   [[ $tlog_table_complete_flag -eq 0 ]] && \
 		   [[ $xml_file_complete_flag -eq 0 ]] && \
 		   [[ $xml_table_complete_flag -eq 0 ]] && \
-		   [[ $summary_complete_flag -eq 0 ]] && \
-		   [[ "$sed5_flag" -eq "$maximum_interval_num" ]];then
+		   [[ $summary_complete_flag -eq 0 ]];then
 
 			((PT_complete_flag=PT_complete_flag+1))
 
@@ -1391,12 +1117,15 @@ $((cyc_summary_count/Get_info_cycle))"\
 
 		if [[ $PT_complete_flag -eq 1 ]];then
 			##把打包机文件拿到本地目录
-			tcpreplay_log_name="tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log"
-			scp -r root@$tcpreplay_ip:/tmp/${tcpreplay_log_name} $TCPREPLAY_LOG_DIR
-			ssh root@$tcpreplay_ip rm -rf /tmp/${tcpreplay_log_name}
-                        printf_log 1 "scp ${tcpreplay_log_name} complete!"
-			ssh root@$DBA_ip kill -9 $nmon_pid
-                        printf_log 1 "kill nmon complete!"
+			scp -r root@$tcpreplay_ip:/tmp/tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log $TCPREPLAY_LOG_DIR
+			ssh root@$tcpreplay_ip rm -rf /tmp/tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log
+			printf_log 1 "scp tcpreplay_${File_Name_Time}_${tcpreplay_given}${tcpreplay_rate}_l${tcpreplay_loop}.log complete!"
+			if [[ PT_RUN_DBA -eq 1 ]];then
+				kill -9 $nmon_pid
+			else
+				ssh root@$DBA_ip kill -9 $nmon_pid
+			fi
+			printf_log 1 "kill nmon complete!"
 			
 			##把成shell脚本生成的.log,.report,.nmon文件拷贝一份放入CHART_REPORTS_DIR目录,把报告处理成xlsx_chart时用
 			cp $LOGS_DIR/$PT_log_name $CHART_REPORTS_DIR
@@ -1404,7 +1133,6 @@ $((cyc_summary_count/Get_info_cycle))"\
 			echo $CHART_REPORTS_DIR
 			cp $REPORTS_DIR/$PT_report_name $CHART_REPORTS_DIR
 			cp $nmon_file_name $CHART_REPORTS_DIR
-			cp $TCPREPLAY_LOG_DIR/$tcpreplay_log_name $CHART_REPORTS_DIR
                         printf_log 1 "cp .report .log .nmon file to chart_reports_dir complete!"
                         printf_log 1 "shell script run end!"
 
@@ -1414,18 +1142,7 @@ $((cyc_summary_count/Get_info_cycle))"\
 			Get_info_Time_tmp=`date +%s`
 			((sleep_time=Get_info_Time-Get_info_Time_tmp-1))
 			printf_log 1 "sleep_time=$sleep_time"
-
-                if [[ $sleep_time -ge 0 ]];then
-			printf_log 1 "Start sleeping!"
-                        sleep $sleep_time
-
-                else
-                        printf_log 1 "sleep_time is negative,please check why the scheduled time is exceeded!"
-			Get_info_Time_tmp=`date +%s`
-			((Get_info_Time=Get_info_Time_tmp+1))
-			printf_log 1 "Current time plus 1 second as next time Get_info_Time"
-                fi
-
+			sleep $sleep_time
 		fi
 	elif [[ $Get_Date_num -eq 0 ]];then
 		((Get_Date_num=Get_Date_num+1))		
@@ -1433,16 +1150,7 @@ $((cyc_summary_count/Get_info_cycle))"\
 		Get_info_Time_tmp=`date +%s`
 		((sleep_time=Get_info_Time-Get_info_Time_tmp-1))
 		printf_log 1 "sleep_time=$sleep_time"
-
-		if [[ $sleep_time -ge 0 ]];then
-			printf_log 1 "Start sleeping!"
-			sleep $sleep_time
-		else
-			printf_log 1 "sleep_time is negative,please check why the scheduled time is exceeded!"
-			((Get_info_Time=Get_info_Time_tmp+1))
-			printf_log 1 "Current time plus 1 second as next time Get_info_Time"
-		fi
-
+		sleep $sleep_time
 	fi
 
 	done

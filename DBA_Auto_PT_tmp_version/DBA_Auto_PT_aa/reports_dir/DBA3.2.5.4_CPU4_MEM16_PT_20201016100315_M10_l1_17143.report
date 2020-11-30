@@ -1,0 +1,66 @@
+DBA_PT_CONFIG,DBA_SYS_CONFIG,SYS_CPU=4 SYS_MEM=16G SYS_DISK=268.435G
+DBA_PT_CONFIG,DBA_VSERION,DBA3.2.5.4
+DBA_PT_CONFIG,DBA_ip,192.168.110.85
+DBA_PT_CONFIG,DBA_eth_R,eth0
+DBA_PT_CONFIG,tcpreplay_ip,192.168.5.156
+DBA_PT_CONFIG,tcpreplay_eth_T,eth3
+DBA_PT_CONFIG,Get_info_cycle,10
+DBA_PT_CONFIG,PT_RUN_DBA,1
+DBA_PT_CONFIG,DBA_RUN_PROCESS_MODE,1
+DBA_PT_CONFIG,eth_drive_map,
+DBA_PT_CONFIG,expect_pcap,2896960
+DBA_PT_CONFIG,expect_sql,1018000
+DBA_PT_CONFIG,tcpreplay_cmd,tcpreplay -M 10 -l 1 -i eth3 /home/meter/loadrunner-moresql-loop100-w10.pcap
+DBA_PT_CONFIG,trace_count_base,0
+DBA_PT_CONFIG,tcpreplay_packing_time,
+DBA_PT_CONFIG,npp_analysis_time,
+DBA_PT_CONFIG,tla_analysis_time,
+DBA_PT_CONFIG,ftm_analysis_time,
+DBA_PT_CONFIG,tls_summary_time,
+Get_info_time,CPU_ALL,Total_Time,user%_max,user%_avg,user%_min,sys%_max,sys%_avg,sys%_min,cpu%_max,cpu%_avg,cpu%_min
+Get_info_time,CPU001,Total_Time,user%_max,user%_avg,user%_min,sys%_max,sys%_avg,sys%_min,cpu%_max,cpu%_avg,cpu%_min
+Get_info_time,CPU002,Total_Time,user%_max,user%_avg,user%_min,sys%_max,sys%_avg,sys%_min,cpu%_max,cpu%_avg,cpu%_min
+Get_info_time,CPU003,Total_Time,user%_max,user%_avg,user%_min,sys%_max,sys%_avg,sys%_min,cpu%_max,cpu%_avg,cpu%_min
+Get_info_time,CPU004,Total_Time,user%_max,user%_avg,user%_min,sys%_max,sys%_avg,sys%_min,cpu%_max,cpu%_avg,cpu%_min
+Get_info_time,MEMORY_MB,Total_Time,mem_total,mem_free,mem_used,mem_used_per
+Get_info_time,SQL_TOT_COUNT,Total_Time,expect_sql,sga_sql,inst_db_count_sql
+Get_info_time,TLOG_TOT_COUNT,Total_Time,expect_count,sga_count,trace_count,index_count,summary_count
+Get_info_time,TO_LOOSE_TOT_COUNT,Total_Time,Begin_to_loose_count
+Get_info_time,TLOG_LAG_COUNT,Total_Time,pcap2sga_lag_time,sga2trace_lag_time,sga2index_lag_time,sga2summary_lag_time,trace2summary_lag_time
+Get_info_time,SQL_TOT_PS_COUNT,Total_Time,expect_sql/s,sga_sql/s,inst_db_count_sql/s
+Get_info_time,TLOG_TOT_PS_COUNT,Total_Time,expect_count/s,sga_count/s,trace_count/s,index_count/s,summary_count/s
+Get_info_time,SQL_CYC_COUNT,Total_Time,expect_sql,sga_sql,db_count_sql
+Get_info_time,TLOG_CYC_COUNT,Total_Time,expect_count,sga_count,trace_count,index_count,summary_count
+Get_info_time,TO_LOOSE_CYC_COUNT,Total_Time,Begin_to_loose_count
+Get_info_time,SQL_CYC_PS_COUNT,Total_Time,expect_sql/s,sga_sql/s,db_count_sql/s
+Get_info_time,TLOG_CYC_PS_COUNT,Total_Time,expect_count/s,sga_count/s,trace_count/s,index_count/s,summary_count/s
+[2020-10-16 10:03:35],CPU_ALL,0,8.4,7.8,7.2,11.7,11.3,10.9,20.1,19.1,18.1
+[2020-10-16 10:03:35],CPU001,0,9.5,8.4,7.3,9.5,8.4,7.3,19.6,18.4,17.2
+[2020-10-16 10:03:35],CPU002,0,11.3,10.3,9.3,11.3,10.3,9.3,29,25.3,21.6
+[2020-10-16 10:03:35],CPU003,0,14.3,12.3,10.3,14.3,12.3,10.3,35.3,32.1,28.8
+[2020-10-16 10:03:35],CPU004,0,0.4,0.3,0.2,0.4,0.3,0.2,0.8,0.6,0.4
+[2020-10-16 10:03:35],MEMORY_MB,0,15951.4,9926.2,6025.2,37.8
+[2020-10-16 10:03:35],PCAP_TOT_COUNT,0,0,0,0,0,0,0
+[2020-10-16 10:03:35],SQL_TOT_COUNT,0,0,0,0
+[2020-10-16 10:03:35],TLOG_TOT_COUNT,0,0,0,0,0,0
+[2020-10-16 10:03:35],TO_LOOSE_TOT_COUNT,0,0
+[2020-10-16 10:03:35],TLOG_LAG_COUNT,0,0,0,0,0,0
+[2020-10-16 10:03:35],PCAP_TOT_PS_COUNT,0,0,0,0,0,0,0
+[2020-10-16 10:03:35],SQL_TOT_PS_COUNT,0,0,0,0
+[2020-10-16 10:03:35],TLOG_TOT_PS_COUNT,0,0,0,0,0,0
+[2020-10-16 10:03:35],PCAP_CYC_COUNT,0,0,0,0,0,0,0
+[2020-10-16 10:03:35],SQL_CYC_COUNT,0,0,0,0
+[2020-10-16 10:03:35],TLOG_CYC_COUNT,0,0,0,0,0
+[2020-10-16 10:03:35],TO_LOOSE_CYC_COUNT,0,0
+[2020-10-16 10:03:35],PCAP_CYC_PS_COUNT,0,0,0,0,0,0,0
+[2020-10-16 10:03:35],SQL_CYC_PS_COUNT,0,0,0,0
+[2020-10-16 10:03:35],TLOG_CYC_PS_COUNT,0,0,0,0,0
+[2020-10-16 10:03:45],CPU_ALL,10,8.4,7.0,5.5,14.0,11.3,8.7,22.4,18.3,14.2
+[2020-10-16 10:03:45],CPU001,10,7.2,6.5,5.7,7.2,6.5,5.7,18.3,14.3,10.2
+[2020-10-16 10:03:45],CPU002,10,10.3,7.2,4.0,10.3,7.2,4.0,27,19.4,11.8
+[2020-10-16 10:03:45],CPU003,10,15.4,13.8,12.1,15.4,13.8,12.1,43.3,38.5,33.6
+[2020-10-16 10:03:45],CPU004,10,0.4,0.3,0.2,0.4,0.3,0.2,1,0.8,0.6
+[2020-10-16 10:03:45],MEMORY_MB,10,15951.4,10043.9,5907.5,37.0
+[2020-10-16 10:03:45],SQL_TOT_COUNT,10,14351,0,0
+[2020-10-16 10:03:45],TLOG_TOT_COUNT,10,14351,0,0,0,0
+[2020-10-16 10:03:45],TO_LOOSE_TOT_COUNT,10,0
